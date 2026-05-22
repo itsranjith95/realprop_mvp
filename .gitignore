@@ -1,0 +1,13 @@
+__pycache__/
+*.pyc
+.venv/
+env/
+.db
+.sqlite3
+.DS_Store
+!dvc.lock
+.dvc/cache/
+data/raw/**
+!data/raw/.gitkeep
+!data/raw/motherdeed/.gitkeep
+!data/raw/khata/.gitkeep
