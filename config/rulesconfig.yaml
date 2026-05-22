@@ -1,0 +1,4 @@
+rules:
+  version: v0
+  thresholds:
+    low_confidence: 0.80

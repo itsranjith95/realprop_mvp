@@ -1,0 +1,7 @@
+streamlit
+pydantic
+pyyaml
+python-dateutil
+rapidfuzz
+sqlalchemy
+dvc

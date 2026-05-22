@@ -11,3 +11,5 @@ data/raw/**
 !data/raw/.gitkeep
 !data/raw/motherdeed/.gitkeep
 !data/raw/khata/.gitkeep
+template.py
+venv/

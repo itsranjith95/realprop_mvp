@@ -1,0 +1,4 @@
+ocr:
+  engine: paddleocr
+  language: en
+  max_pages: 50
