@@ -2,5 +2,33 @@ app:
   name: realprop-mvp
   city: Bengaluru
   environment: dev
-  storage_root: data
-  db_path: data/app.db
+  host: 127.0.0.1
+  api_port: 8000
+  streamlit_port: 8501
+
+storage:
+  root: data
+  raw_dir: data/raw
+  interim_dir: data/interim
+  ocr_dir: data/ocr
+  extracted_dir: data/extracted
+  reports_dir: data/reports
+
+database:
+  sqlite_path: data/app.db
+
+upload:
+  allowed_extensions:
+    - .pdf
+    - .png
+    - .jpg
+    - .jpeg
+  max_file_size_mb: 20
+
+case_defaults:
+  city: Bengaluru
+  property_type_default: residential
+  created_by_default: internal_user
+
+security:
+  redact_logs: true

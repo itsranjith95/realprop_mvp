@@ -5,3 +5,6 @@ python-dateutil
 rapidfuzz
 sqlalchemy
 dvc
+fastapi
+uvicorn
+python-multipart 
