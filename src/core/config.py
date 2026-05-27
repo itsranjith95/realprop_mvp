@@ -3,7 +3,7 @@ from pathlib import Path
 from src.core.utils import read_yaml
 
 ROOT = Path.cwd()
-CONFIG_PATH = ROOT / "config" / "appconfig.yaml"
+CONFIG_PATH = ROOT / "config" / "appconfig.yaml" or ROOT / "config" / "app_config.yml"
 
 
 @lru_cache

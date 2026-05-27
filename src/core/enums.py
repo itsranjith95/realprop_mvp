@@ -6,6 +6,12 @@ class DocumentType(str, Enum):
     KHATA = "khata"
 
 
+class DocumentStatus(str, Enum):
+    UPLOADED = "UPLOADED"
+    PROCESSING = "PROCESSING"
+    OCR_DONE = "OCR_DONE"
+    FAILED = "FAILED"
+
 class CaseStatus(str, Enum):
     DRAFT = "draft"
     AWAITING_DOCUMENTS = "awaiting_documents"

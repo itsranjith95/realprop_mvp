@@ -1,0 +1,16 @@
+ocr:
+  engine: paddleocr
+  language: en
+  use_angle_cls: true
+  use_gpu: false
+  dpi: 300
+  max_side: 2400
+  min_quality_score: 0.35
+  min_ocr_confidence: 0.50
+pdf:
+  backend: pymupdf
+paths:
+  raw_dir: data/raw
+  interim_dir: data/interim
+  ocr_dir: data/ocr
+  logs_dir: logs

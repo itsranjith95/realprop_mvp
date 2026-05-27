@@ -1,31 +1,54 @@
-__pycache__/
-*.pyc
-.venv/
+# --------------------
+# Python / virtualenv
+# --------------------
 venv/
-env/
-.pytest_cache/
+.env
+*.pyc
+*.pyo
+*.pyd
+__pycache__/
+*.log
+
+# --------------------
+# OS / editor junk
+# --------------------
 .DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+*.swo
 
-data/app.db
-*.db
-*.sqlite3
+# --------------------
+# Local data artifacts
+# (keep data structure, ignore contents)
+# --------------------
+data/raw/
+data/ocr/
+data/interim/
+data/reports/
+data/models/
+data/tmp/
 
-data/raw/case_*/
-data/interim/*
-data/ocr/*
-data/extracted/*
-data/reports/*
+# If you want to keep empty folders, add a .gitkeep file inside them.
 
-!data/raw/.gitkeep
-!data/raw/motherdeed/
-!data/raw/khata/
-!data/raw/motherdeed/.gitkeep
-!data/raw/khata/.gitkeep
-!data/interim/.gitkeep
-!data/ocr/.gitkeep
-!data/extracted/.gitkeep
-!data/reports/.gitkeep
-
-template.py
-dvc.lock
+# --------------------
+# DVC / MLflow artifacts
+# (keep .dvc metadata files themselves)
+# --------------------
 .dvc/cache/
+.dvc/tmp/
+mlruns/
+
+# --------------------
+# Notebooks / experiments
+# --------------------
+notebooks/.ipynb_checkpoints/
+*.ipynb_checkpoints
+
+# --------------------
+# Build / distribution
+# --------------------
+build/
+dist/
+*.egg-info/

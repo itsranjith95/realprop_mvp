@@ -1,6 +1,7 @@
 from datetime import datetime
 from pydantic import BaseModel, Field
 from src.core.enums import CaseStatus, DocumentStatus, DocumentType
+from typing import Any
 
 
 class Case(BaseModel):
@@ -63,3 +64,34 @@ class DocumentResponse(BaseModel):
 class CaseDetailResponse(BaseModel):
     case: Case
     documents: list[Document] = Field(default_factory=list)
+    
+
+class OCRBlock(BaseModel):
+    text: str
+    confidence: float = Field(ge=0.0, le=1.0)
+    bbox: list[float]
+    block_type: str = "line"
+
+class PageQuality(BaseModel):
+    blur_score: float = 0.0
+    contrast_score: float = 0.0
+    brightness: float = 0.0
+    skew_angle: float = 0.0
+    quality_score: float = 0.0
+    warnings: list[str] = []
+
+class OCRPageResult(BaseModel):
+    case_id: str
+    document_id: str
+    page_index: int
+    source_file: str
+    image_width: int
+    image_height: int
+    quality: PageQuality
+    engine: str
+    language: str
+    page_confidence: float
+    text: str
+    blocks: list[OCRBlock]
+    raw_result: dict[str, Any] = {}
+    processed_at: str
