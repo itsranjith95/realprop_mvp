@@ -4,13 +4,19 @@ from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from src.services.file_service import ensure_dir, is_allowed_file, new_id
 from src.services.ocr_pipeline import OCRPipeline
 
-app = FastAPI(title="RealProp Phase 2 OCR API")
+# ✅ Phase 3 — import and register classify router
+from src.api.routes.classify import router as classify_router
+
+app = FastAPI(title="RealProp MVP API")
 pipeline = OCRPipeline()
 RAW_DIR = Path("data/raw")
 
+# ✅ Register routers HERE — before uvicorn ever touches this file
+app.include_router(classify_router)
+
 @app.get("/health")
 def health():
-    return {"status": "ok", "phase": 2}
+    return {"status": "ok", "phase": "2+3"}
 
 @app.post("/v1/ocr/run")
 def run_ocr(case_id: str = Form(...), document_type: str = Form("unknown"), file: UploadFile = File(...)):

@@ -1,0 +1,44 @@
+# Phase 3 — Document Classification Configuration
+
+classifier:
+  # Ollama server URL (default: local)
+  ollama_base_url: "http://localhost:11434"
+  
+  # Model to use — options: mistral, llama3, gemma2, phi3, llama3.2
+  # Recommended for this task: mistral (fast) or llama3 (accurate)
+  ollama_model: "mistral"
+  
+  # Request timeout in seconds
+  ollama_timeout: 60
+  
+  # Set false to disable Ollama and run rule engine only
+  use_ollama: true
+
+thresholds:
+  # Skip Ollama if rule engine confidence >= this value
+  rule_engine_skip: 0.75
+  
+  # Flag document for human review if final confidence < this value
+  human_review: 0.55
+
+ensemble_weights:
+  rule_engine: 0.45
+  ollama: 0.55
+  agreement_bonus: 0.10
+
+supported_doc_types:
+  - sale_deed
+  - mother_deed
+  - khata_certificate
+  - khata_extract
+  - encumbrance_certificate
+  - property_tax_receipt
+  - aadhar_card
+  - pan_card
+  - power_of_attorney
+  - release_deed
+  - gift_deed
+  - will
+  - building_plan
+  - occupancy_certificate
+  - unknown
