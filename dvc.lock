@@ -1,0 +1,54 @@
+schema: '2.0'
+stages:
+  classification_train:
+    cmd: python -m src.classification.train_classifier
+    deps:
+    - path: data/labeled/classification/train.csv
+      hash: md5
+      md5: 6c607d5754e8ec46891edb5ad4b24325
+      size: 989
+    - path: data/labeled/classification/val.csv
+      hash: md5
+      md5: f517702b3305f8461e906b561bdefda6
+      size: 245
+    - path: src/classification/label_space.py
+      hash: md5
+      md5: abab99323aab5a93d5d2988247f6aff5
+      size: 167
+    - path: src/classification/ml_classifier.py
+      hash: md5
+      md5: 3a0d6200deeae7eb8582ac3c976e8d45
+      size: 1775
+    - path: src/classification/train_classifier.py
+      hash: md5
+      md5: b3f9cebf1a757a8cb4f8412269e0269d
+      size: 2495
+    outs:
+    - path: models/classification/tfidf_logreg.joblib
+      hash: md5
+      md5: 1c4c5d92ce7bfe7f111b2caca7f2c558
+      size: 11921
+  classification_evaluate:
+    cmd: python -m src.classification.evaluate_classifier
+    deps:
+    - path: data/labeled/classification/test.csv
+      hash: md5
+      md5: 8956d333e5f871aefca1bbeff22149e2
+      size: 244
+    - path: models/classification/tfidf_logreg.joblib
+      hash: md5
+      md5: 1c4c5d92ce7bfe7f111b2caca7f2c558
+      size: 11921
+    - path: src/classification/evaluate_classifier.py
+      hash: md5
+      md5: d66b5a1a4bf5155bbb602c1ea0235fae
+      size: 1166
+    - path: src/classification/ml_classifier.py
+      hash: md5
+      md5: 3a0d6200deeae7eb8582ac3c976e8d45
+      size: 1775
+    outs:
+    - path: models/classification/eval_report.txt
+      hash: md5
+      md5: 05c74a2d89c7a8b0c5ca6cd46e4a2fce
+      size: 522

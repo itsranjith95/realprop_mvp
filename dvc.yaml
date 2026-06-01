@@ -1,1 +1,21 @@
-stages: {}
+stages:
+  classification_train:
+    cmd: python -m src.classification.train_classifier
+    deps:
+      - src/classification/train_classifier.py
+      - src/classification/ml_classifier.py
+      - src/classification/label_space.py
+      - data/labeled/classification/train.csv
+      - data/labeled/classification/val.csv
+    outs:
+      - models/classification/tfidf_logreg.joblib
+
+  classification_evaluate:
+    cmd: python -m src.classification.evaluate_classifier
+    deps:
+      - src/classification/evaluate_classifier.py
+      - src/classification/ml_classifier.py
+      - data/labeled/classification/test.csv
+      - models/classification/tfidf_logreg.joblib
+    outs:
+      - models/classification/eval_report.txt

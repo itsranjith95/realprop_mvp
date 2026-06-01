@@ -5,6 +5,7 @@ from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 
 from src.api.routes.classify import router as classify_router
 from src.api.routes.pipeline import router as pipeline_router
+from src.api.routes.classification_runtime import router as runtime_router
 from src.services.file_service import ensure_dir, is_allowed_file, new_id
 from src.services.ocr_pipeline import OCRPipeline
 
@@ -15,11 +16,12 @@ RAW_DIR = Path("data/raw")
 
 app.include_router(classify_router)
 app.include_router(pipeline_router)
+app.include_router(runtime_router)
 
 
 @app.get("/health")
 def health():
-    return {"status": "ok", "phase": "2+3a"}
+    return {"status": "ok", "phase": "3b"}
 
 
 @app.post("/v1/ocr/run")
@@ -28,6 +30,9 @@ def run_ocr(
     document_type: str = Form("unknown"),
     file: UploadFile = File(...),
 ):
+    if not file.filename:
+        raise HTTPException(status_code=400, detail="file is required")
+
     if not is_allowed_file(file.filename):
         raise HTTPException(status_code=400, detail="Unsupported file type")
 

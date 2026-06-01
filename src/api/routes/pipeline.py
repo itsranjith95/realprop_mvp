@@ -1,4 +1,5 @@
 import logging
+import threading
 import time
 from pathlib import Path
 from typing import Any
@@ -16,6 +17,8 @@ router = APIRouter(prefix="/api/v1/pipeline", tags=["pipeline"])
 RAW_DIR = Path("data/raw")
 ocr_pipeline = OCRPipeline()
 classifier = DocumentClassifier()
+
+_pipeline_lock = threading.Lock()
 
 
 def _aggregate_ocr_text(ocr_result: dict[str, Any]) -> str:
@@ -72,14 +75,21 @@ def ocr_and_classify(
     if not is_allowed_file(file.filename):
         raise HTTPException(status_code=400, detail="Unsupported file type")
 
+    acquired = _pipeline_lock.acquire(blocking=False)
+    if not acquired:
+        raise HTTPException(
+            status_code=409,
+            detail="Another OCR/classification job is already running. Please wait and retry."
+        )
+
     doc_id = new_id("doc")
     ext = Path(file.filename).suffix.lower()
     dst_dir = ensure_dir(RAW_DIR / case_id / document_type)
     dst_path = dst_dir / f"{doc_id}{ext}"
 
-    save_upload(file, dst_path)
-
     try:
+        save_upload(file, dst_path)
+
         start = time.perf_counter()
         logger.info("Starting OCR for doc_id=%s", doc_id)
 
@@ -113,3 +123,5 @@ def ocr_and_classify(
             status_code=500,
             detail=f"pipeline failed: {str(exc)}"
         ) from exc
+    finally:
+        _pipeline_lock.release()

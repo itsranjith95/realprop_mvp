@@ -1,0 +1,9 @@
+text,label,case_id,document_id,source,review_notes
+"This Mother Deed describes the chain of title and schedule of property for the site registered before the Sub-Registrar.",mother_deed,seed,seed_md_001,seed,""
+"Original parent document showing prior deed, property bearing number, and all that piece and parcel of immovable property.",mother_deed,seed,seed_md_002,seed,""
+"Khata Certificate issued by BBMP with assessment number, ward, zone and PID details.",khata_certificate,seed,seed_kh_001,seed,""
+"Bruhat Bengaluru Mahanagara Palike khata no and owner name with property tax assessment.",khata_certificate,seed,seed_kh_002,seed,""
+"Aadhaar card issued by UIDAI with name and DOB.",other,seed,seed_ot_001,seed,""
+"Encumbrance Certificate Form 15 showing no encumbrance.",other,seed,seed_ot_002,seed,""
+"Sale deed executed between vendor and vendee with stamp duty paid.",other,seed,seed_ot_003,seed,""
+"Property tax receipt with arrears and current tax amount.",other,seed,seed_ot_004,seed,""

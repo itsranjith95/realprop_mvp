@@ -6,8 +6,8 @@ API_BASE = "http://127.0.0.1:8000"
 STRICT_MVP_LABELS = ["mother_deed", "khata_certificate"]
 
 st.set_page_config(page_title="RealProp MVP", layout="wide")
-st.title("RealProp MVP - Phase 3A")
-st.caption("OCR + document classification + manual confirmation")
+st.title("RealProp MVP - Phase 3B")
+st.caption("OCR + classification + manifest reuse + review-to-training flow")
 
 if "last_pipeline_result" not in st.session_state:
     st.session_state["last_pipeline_result"] = None
@@ -30,59 +30,111 @@ with st.sidebar:
         except Exception as e:
             st.error(str(e))
 
-st.header("Upload and Run Pipeline")
+mode = st.radio(
+    "Mode",
+    [
+        "OCR + Classify",
+        "Classify from OCR Manifest",
+    ],
+    horizontal=True,
+)
 
-with st.form("ocr_classify_form"):
-    case_id = st.text_input("Case ID", value="case01")
-    document_type = st.selectbox(
-        "Document Type Hint",
-        ["motherdeed", "khata", "unknown"],
-        index=0,
-    )
-    uploaded_file = st.file_uploader(
-        "Upload document",
-        type=["pdf", "png", "jpg", "jpeg", "webp"]
-    )
-    submit_pipeline = st.form_submit_button("Run OCR + Classification")
+if mode == "OCR + Classify":
+    st.header("Upload and Run Pipeline")
 
-if submit_pipeline:
-    if not case_id.strip():
-        st.warning("Please enter a case ID.")
-    elif uploaded_file is None:
-        st.warning("Please upload a file.")
-    else:
-        try:
-            files = {
-                "file": (
-                    uploaded_file.name,
-                    uploaded_file.getvalue(),
-                    uploaded_file.type or "application/octet-stream",
-                )
-            }
-            data = {
-                "case_id": case_id.strip(),
-                "document_type": document_type,
-            }
+    with st.form("ocr_classify_form"):
+        case_id = st.text_input("Case ID", value="case01")
+        document_type = st.selectbox(
+            "Document Type Hint",
+            ["motherdeed", "khata", "unknown"],
+            index=0,
+        )
+        uploaded_file = st.file_uploader(
+            "Upload document",
+            type=["pdf", "png", "jpg", "jpeg", "webp"]
+        )
+        submit_pipeline = st.form_submit_button("Run OCR + Classification")
 
-            with st.spinner("Running OCR and classification..."):
-                res = requests.post(
-                    f"{API_BASE}/api/v1/pipeline/ocr-classify",
-                    files=files,
-                    data=data,
-                    timeout=600,
-                )
+    if submit_pipeline:
+        if not case_id.strip():
+            st.warning("Please enter a case ID.")
+        elif uploaded_file is None:
+            st.warning("Please upload a file.")
+        else:
+            try:
+                files = {
+                    "file": (
+                        uploaded_file.name,
+                        uploaded_file.getvalue(),
+                        uploaded_file.type or "application/octet-stream",
+                    )
+                }
+                data = {
+                    "case_id": case_id.strip(),
+                    "document_type": document_type,
+                }
 
-            if res.status_code == 200:
-                payload = res.json()
-                st.session_state["last_pipeline_result"] = payload
-                st.success("Pipeline completed successfully.")
-            else:
-                try:
-                    st.error(res.json())
-                except Exception:
-                    st.error(res.text)
-        except Exception as e:
-            st.error(str(e))
+                with st.spinner("Running OCR and classification..."):
+                    res = requests.post(
+                        f"{API_BASE}/api/v1/pipeline/ocr-classify",
+                        files=files,
+                        data=data,
+                        timeout=600,
+                    )
+
+                if res.status_code == 200:
+                    payload = res.json()
+                    st.session_state["last_pipeline_result"] = payload
+                    st.success("Pipeline completed successfully.")
+                elif res.status_code == 409:
+                    try:
+                        detail = res.json().get("detail", "Another job is already running.")
+                    except Exception:
+                        detail = "Another job is already running."
+                    st.warning(detail)
+                else:
+                    try:
+                        st.error(res.json())
+                    except Exception:
+                        st.error(res.text)
+
+            except Exception as e:
+                st.error(str(e))
+
+else:
+    st.header("Classify from Existing OCR Manifest")
+
+    with st.form("manifest_classify_form"):
+        manifest_path = st.text_input(
+            "Manifest Path",
+            value="data/ocr/case01/docdc26e82c397a/manifest.json",
+        )
+        submit_manifest = st.form_submit_button("Classify from Manifest")
+
+    if submit_manifest:
+        if not manifest_path.strip():
+            st.warning("Please enter a manifest path.")
+        else:
+            try:
+                with st.spinner("Classifying from saved OCR manifest..."):
+                    res = requests.post(
+                        f"{API_BASE}/api/v1/runtime/classify-manifest",
+                        json={"manifest_path": manifest_path.strip()},
+                        timeout=120,
+                    )
+
+                if res.status_code == 200:
+                    payload = res.json()
+                    st.session_state["last_pipeline_result"] = payload
+                    st.success("Manifest classification completed successfully.")
+                else:
+                    try:
+                        st.error(res.json())
+                    except Exception:
+                        st.error(res.text)
+
+            except Exception as e:
+                st.error(str(e))
 
 result = st.session_state.get("last_pipeline_result")
 
@@ -112,22 +164,55 @@ if result:
     if needs_review or predicted_label not in STRICT_MVP_LABELS:
         st.warning("Low confidence or non-MVP label detected. Manual confirmation required.")
 
-        confirmed_label = st.selectbox(
-            "Manual Confirmation",
-            STRICT_MVP_LABELS,
-            index=0 if predicted_label != "khata_certificate" else 1,
-        )
-        review_notes = st.text_area("Reviewer Notes", placeholder="Enter review notes")
+    confirmed_label = st.selectbox(
+        "Confirmed Label",
+        STRICT_MVP_LABELS + ["other"],
+        index=0 if predicted_label == "mother_deed" else 1 if predicted_label == "khata_certificate" else 2,
+    )
+    review_notes = st.text_area("Reviewer Notes", placeholder="Enter review notes")
 
+    col_a, col_b = st.columns(2)
+
+    with col_a:
         if st.button("Approve Review Decision"):
             reviewed = dict(result)
             reviewed["review"] = {
                 "confirmed_label": confirmed_label,
                 "review_notes": review_notes,
-                "review_required": True,
+                "review_required": bool(needs_review),
             }
             st.session_state["last_pipeline_result"] = reviewed
             st.success(f"Manual review saved with label: {confirmed_label}")
+
+    with col_b:
+        if st.button("Add Reviewed Example to Training Data"):
+            aggregated_text = result.get("aggregated_text", "")
+            case_id = result.get("case_id", "unknown_case")
+            document_id = result.get("document_id", "unknown_doc")
+
+            try:
+                res = requests.post(
+                    f"{API_BASE}/api/v1/runtime/save-review-example",
+                    json={
+                        "case_id": case_id,
+                        "document_id": document_id,
+                        "confirmed_label": confirmed_label,
+                        "aggregated_text": aggregated_text,
+                        "source": "manual_review",
+                        "review_notes": review_notes,
+                    },
+                    timeout=30,
+                )
+
+                if res.status_code == 200:
+                    st.success(res.json())
+                else:
+                    try:
+                        st.error(res.json())
+                    except Exception:
+                        st.error(res.text)
+            except Exception as e:
+                st.error(str(e))
 
     tab1, tab2, tab3 = st.tabs(["OCR Text", "OCR JSON", "Final JSON"])
 

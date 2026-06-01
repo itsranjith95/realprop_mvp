@@ -1,0 +1,3 @@
+experiment_name: doctype_classifier_mvp
+tracking_uri: file:./mlruns
+registered_model_name: doctypeclassifiermvp
