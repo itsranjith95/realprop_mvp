@@ -1,0 +1,74 @@
+# Extraction pipeline configuration – Phase 4
+version: "1.0"
+
+spacy_model: "en_core_web_sm"          # install: python -m spacy download en_core_web_sm
+
+confidence_thresholds:
+  high:   0.85
+  medium: 0.65
+  low:    0.40
+
+ocr_confidence_penalty_threshold: 0.70
+ocr_confidence_penalty: 0.15
+
+motherdeed:
+  required_fields:
+    - seller_name
+    - buyer_name
+    - execution_date
+    - document_number
+  optional_fields:
+    - registration_date
+    - property_description
+    - survey_number
+    - site_number
+    - flat_number
+    - registration_office
+
+khata:
+  required_fields:
+    - owner_name
+    - khata_number
+  optional_fields:
+    - property_id
+    - ward
+    - zone
+    - assessment
+    - usage
+    - address
+
+patterns:
+  date:
+    iso:     '\d{4}-\d{2}-\d{2}'
+    dmy:     '\d{1,2}[/-]\d{1,2}[/-]\d{2,4}'
+    written: '\d{1,2}\s+(?:January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{4}'
+  survey_number:
+    - 'Sy\.?\s*No\.?\s*[\d/]+'
+    - 'Survey\s+No\.?\s*[\d/]+'
+  site_number:
+    - 'Site\s+No\.?\s*\d+'
+    - 'Plot\s+No\.?\s*\d+'
+  flat_number:
+    - 'Flat\s+No\.?\s*[\w-]+'
+    - 'Apartment\s+No\.?\s*[\w-]+'
+  document_number:
+    - 'Doc(?:ument)?\s+No\.?\s*[\d/]+'
+    - 'Deed\s+No\.?\s*[\d/]+'
+  khata_number:
+    - 'Khata\s+No\.?\s*[\d/]+'
+    - 'Khatha\s+No\.?\s*[\d/]+'
+    - 'K\.No\.?\s*[\d/]+'
+  registration_office:
+    - 'Sub[-\s]?Registrar\s+(?:Office\s+)?[\w\s,]+'
+    - 'Registrar\s+of\s+[\w\s]+'
+  ward:
+    - 'Ward\s+No\.?\s*\d+'
+    - 'Ward\s*:\s*[\w\s]+'
+  zone:
+    - 'Zone\s*:\s*[\w\s]+'
+    - 'Zone\s+[A-Z\d]+'
+  assessment:
+    - 'Assessment\s+No\.?\s*[\d/]+'
+    - 'Annual\s+Value\s*[:\s]*Rs\.?\s*[\d,.]+'
+  usage:
+    - '(?i)(?:residential|commercial|mixed|industrial)'

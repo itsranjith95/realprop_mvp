@@ -95,3 +95,21 @@ class OCRPageResult(BaseModel):
     blocks: list[OCRBlock]
     raw_result: dict[str, Any] = {}
     processed_at: str
+    
+# ─── Phase 4 additions ────────────────────────────────────────────────────────
+
+class ExtractedEntity(BaseModel):
+    """Structured record for a single extracted & normalised field."""
+    entity_id: str
+    case_id: str
+    document_id: str
+    doc_type: str                        # "motherdeed" | "khata"
+    field_name: str                      # e.g. "seller_name", "khata_number"
+    value: str                           # raw extracted value
+    normalized_value: str                # after normalisation
+    confidence: float = Field(ge=0.0, le=1.0)
+    page: int = 0
+    bbox: list[float] = Field(default_factory=list)
+    source_doc: str = ""
+    extraction_method: str = "regex"     # "regex" | "spacy" | "llm"
+    created_at: str = ""

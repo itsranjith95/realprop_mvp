@@ -43,3 +43,22 @@ class AuditEventORM(Base):
     object_id = Column(String(100), nullable=False, index=True)
     metadata_json = Column(Text, nullable=False)
     created_at = Column(DateTime(timezone=True), nullable=False)
+    
+# ─── Phase 4 addition ─────────────────────────────────────────────────────────
+
+class ExtractedEntityORM(Base):
+    __tablename__ = "extracted_entities"
+
+    id               = Column(String(64),  primary_key=True)
+    case_id          = Column(String(64),  ForeignKey("cases.id"), nullable=False, index=True)
+    document_id      = Column(String(64),  ForeignKey("documents.id"), nullable=False, index=True)
+    doc_type         = Column(String(50),  nullable=False)
+    field_name       = Column(String(100), nullable=False)
+    value            = Column(Text,        nullable=False)
+    normalized_value = Column(Text,        nullable=False)
+    confidence       = Column(String(10),  nullable=False)   # stored as str, cast to float in service
+    page             = Column(Integer,     nullable=False, default=0)
+    bbox             = Column(Text,        nullable=True)     # JSON list
+    source_doc       = Column(String(255), nullable=True)
+    extraction_method= Column(String(50),  nullable=False, default="regex")
+    created_at       = Column(DateTime(timezone=True), nullable=False)

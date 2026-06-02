@@ -19,3 +19,23 @@ stages:
       - models/classification/tfidf_logreg.joblib
     outs:
       - models/classification/eval_report.txt
+
+  extraction:
+    cmd: >
+      python -m src.pipelines.extraction_pipeline
+      --case_id ${case_id}
+      --doc_id  ${doc_id}
+      --doc_type ${doc_type}
+    params:
+      - config/extraction_config.yaml:
+          - spacy_model
+          - confidence_thresholds
+    deps:
+      - src/pipelines/extraction_pipeline.py
+      - src/services/extractionservice.py
+      - config/extraction_config.yaml
+      - data/ocr/${case_id}/${doc_id}
+    outs:
+      - data/extracted/${case_id}/${doc_id}/entities.json
+
+      
