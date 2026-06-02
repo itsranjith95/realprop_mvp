@@ -1,6 +1,14 @@
 import json
 import requests
 import streamlit as st
+from pathlib import Path
+import sys
+import os
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+
+from logs.logging_config import setup_logging   
+setup_logging() 
 
 API_BASE = "http://127.0.0.1:8000"
 STRICT_MVP_LABELS = ["mother_deed", "khata_certificate"]

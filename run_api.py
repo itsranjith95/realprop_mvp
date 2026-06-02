@@ -1,3 +1,6 @@
+from logs.logging_config import setup_logging
+setup_logging()
+
 import uvicorn
 
 if __name__ == "__main__":

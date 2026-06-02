@@ -1,0 +1,8 @@
+{
+  "case_id": "CASE_GOOD_001",
+  "risk_score": 0,
+  "risk_label": "Green",
+  "mandatory_review": false,
+  "rule_hits": [],
+  "persisted_at": "2026-06-02T10:07:24.353436+00:00"
+}

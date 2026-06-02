@@ -39,3 +39,25 @@ stages:
       - data/extracted/${case_id}/${doc_id}/entities.json
 
       
+# Add these two stages under the existing `stages:` block in dvc.yaml
+
+  validate:
+    cmd: python -m src.pipelines.validation_pipeline
+    deps:
+      - src/pipelines/validation_pipeline.py
+      - src/core/validation_models.py
+      - data/results/extracted/
+    outs:
+      - data/results/validations/
+    desc: "Phase 5 – Cross-document validation (Mother Deed ↔ Khata)"
+
+  rules:
+    cmd: python -m src.pipelines.rules_pipeline
+    deps:
+      - src/pipelines/rules_pipeline.py
+      - src/core/validation_models.py
+      - config/rules_config.yaml
+      - data/results/validations/
+    outs:
+      - data/results/risk_scores/
+    desc: "Phase 5 – Rules evaluation & risk scoring"

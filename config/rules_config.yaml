@@ -1,0 +1,154 @@
+# config/rules_config.yaml
+# Phase 5 – Rules & Risk Scoring Configuration
+# Mother Deed ↔ Khata cross-document governance rules
+
+version: "1.0.0"
+description: "Deterministic rules for MVP governance (Mother Deed + Khata)"
+
+# ---------------------------------------------------------------------------
+# Risk Score Thresholds → Label Mapping
+# ---------------------------------------------------------------------------
+risk_thresholds:
+  green:
+    min: 0
+    max: 30
+    label: "Green"
+    description: "Low risk – document chain appears consistent."
+  yellow:
+    min: 31
+    max: 65
+    label: "Yellow"
+    description: "Medium risk – review flagged issues before proceeding."
+  red:
+    min: 66
+    max: 100
+    label: "Red"
+    description: "High risk – mandatory legal review required."
+
+# ---------------------------------------------------------------------------
+# Rules
+# Each rule:
+#   id          : unique snake_case identifier
+#   name        : human-readable label
+#   severity    : critical | high | medium | low
+#   points      : risk points added when this rule fires (0–100 scale)
+#   mandatory_review : if true, always escalate regardless of total score
+#   description : what this rule checks
+#   evidence_hint: field names to surface as evidence
+# ---------------------------------------------------------------------------
+rules:
+
+  - id: MISSING_OWNER_NAME
+    name: "Missing Owner Name"
+    severity: critical
+    points: 40
+    mandatory_review: true
+    description: >
+      Owner name is absent in either the Khata certificate or the
+      Mother Deed. Cannot perform any ownership validation.
+    evidence_hint:
+      - khata.owner_name
+      - mother_deed.buyer_name
+
+  - id: MISSING_BUYER_SELLER_NAMES
+    name: "Missing Buyer/Seller Names in Mother Deed"
+    severity: high
+    points: 30
+    mandatory_review: true
+    description: >
+      One or both party names (buyer / seller) are missing in the
+      Mother Deed, making chain-of-title verification impossible.
+    evidence_hint:
+      - mother_deed.buyer_name
+      - mother_deed.seller_name
+
+  - id: OWNER_NAME_MISMATCH
+    name: "Owner Name Mismatch"
+    severity: high
+    points: 35
+    mandatory_review: false
+    description: >
+      The buyer name in the Mother Deed does not fuzzy-match the
+      owner name in the Khata certificate (threshold < 85).
+    evidence_hint:
+      - mother_deed.buyer_name
+      - khata.owner_name
+
+  - id: PROPERTY_ID_MISMATCH
+    name: "Property ID Mismatch"
+    severity: high
+    points: 35
+    mandatory_review: false
+    description: >
+      The survey/site/flat number in the Mother Deed does not match
+      the property ID recorded in the Khata certificate.
+    evidence_hint:
+      - mother_deed.property_id
+      - khata.property_id
+
+  - id: AREA_MISMATCH
+    name: "Area Mismatch"
+    severity: medium
+    points: 20
+    mandatory_review: false
+    description: >
+      The plot/flat area recorded in the Mother Deed differs from
+      the area in the Khata certificate by more than 5%.
+    evidence_hint:
+      - mother_deed.area
+      - khata.area
+
+  - id: MISSING_PROPERTY_ID
+    name: "Missing Property ID"
+    severity: high
+    points: 25
+    mandatory_review: false
+    description: >
+      Property identifier (survey number / site number / flat number)
+      is absent in one or both documents.
+    evidence_hint:
+      - mother_deed.property_id
+      - khata.property_id
+
+  - id: LOW_CONFIDENCE_CRITICAL_FIELD
+    name: "Low Confidence on Critical Field"
+    severity: medium
+    points: 15
+    mandatory_review: false
+    description: >
+      One or more critical fields (owner_name, property_id, area)
+      were extracted with confidence below the threshold (0.70).
+      Manual verification is recommended.
+    evidence_hint:
+      - extraction_confidence
+
+  - id: MISSING_AREA
+    name: "Missing Area in Both Documents"
+    severity: low
+    points: 5
+    mandatory_review: false
+    description: >
+      Area field is absent in both documents; area cross-check
+      was skipped.
+    evidence_hint:
+      - mother_deed.area
+      - khata.area
+
+# ---------------------------------------------------------------------------
+# Field confidence thresholds used by LOW_CONFIDENCE_CRITICAL_FIELD
+# ---------------------------------------------------------------------------
+confidence_thresholds:
+  critical_field_min: 0.70
+  critical_fields:
+    - owner_name
+    - buyer_name
+    - property_id
+    - area
+
+# ---------------------------------------------------------------------------
+# Fuzzy match thresholds
+# ---------------------------------------------------------------------------
+fuzzy_thresholds:
+  owner_name_match: 85       # rapidfuzz token_sort_ratio minimum
+  property_id_match: 90      # exact after normalisation preferred; fallback ratio
+  area_tolerance_pct: 5.0    # % tolerance before AREA_MISMATCH fires

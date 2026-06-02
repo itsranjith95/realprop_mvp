@@ -1,0 +1,54 @@
+{
+  "case_id": "CASE_BAD_001",
+  "risk_score": 90,
+  "risk_label": "Red",
+  "mandatory_review": false,
+  "rule_hits": [
+    {
+      "rule_id": "OWNER_NAME_MISMATCH",
+      "name": "Owner Name Mismatch",
+      "severity": "high",
+      "points": 35,
+      "mandatory_review": false,
+      "evidence": {
+        "mother_deed.buyer_name": "Ranjith Kumar",
+        "khata.owner_name": "Mahesh Babu",
+        "normalized_buyer": "ranjith kumar",
+        "normalized_owner": "mahesh babu",
+        "fuzzy_score": 33.333333333333336,
+        "threshold": 85
+      }
+    },
+    {
+      "rule_id": "PROPERTY_ID_MISMATCH",
+      "name": "Property ID Mismatch",
+      "severity": "high",
+      "points": 35,
+      "mandatory_review": false,
+      "evidence": {
+        "mother_deed.property_id": "SY NO 45/2",
+        "khata.property_id": "SY NO 99/1",
+        "normalized_md_id": "SYNO452",
+        "normalized_kh_id": "SYNO991",
+        "fuzzy_score": 57.14285714285714,
+        "threshold": 90
+      }
+    },
+    {
+      "rule_id": "AREA_MISMATCH",
+      "name": "Area Mismatch",
+      "severity": "medium",
+      "points": 20,
+      "mandatory_review": false,
+      "evidence": {
+        "mother_deed.area": "1200 sqft",
+        "khata.area": "900 sqft",
+        "md_area_parsed": 1200.0,
+        "kh_area_parsed": 900.0,
+        "diff_pct": 33.33,
+        "tolerance_pct": 5.0
+      }
+    }
+  ],
+  "persisted_at": "2026-06-02T10:07:24.392669+00:00"
+}

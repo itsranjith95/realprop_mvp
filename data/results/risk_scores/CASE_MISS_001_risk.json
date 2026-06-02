@@ -1,0 +1,41 @@
+{
+  "case_id": "CASE_MISS_001",
+  "risk_score": 95,
+  "risk_label": "Red",
+  "mandatory_review": true,
+  "rule_hits": [
+    {
+      "rule_id": "MISSING_OWNER_NAME",
+      "name": "Missing Owner Name",
+      "severity": "critical",
+      "points": 40,
+      "mandatory_review": true,
+      "evidence": {
+        "mother_deed.buyer_name": null,
+        "khata.owner_name": null
+      }
+    },
+    {
+      "rule_id": "MISSING_BUYER_SELLER_NAMES",
+      "name": "Missing Buyer/Seller Names in Mother Deed",
+      "severity": "high",
+      "points": 30,
+      "mandatory_review": true,
+      "evidence": {
+        "mother_deed.seller_name": null
+      }
+    },
+    {
+      "rule_id": "MISSING_PROPERTY_ID",
+      "name": "Missing Property ID",
+      "severity": "high",
+      "points": 25,
+      "mandatory_review": false,
+      "evidence": {
+        "mother_deed.property_id": null,
+        "khata.property_id": null
+      }
+    }
+  ],
+  "persisted_at": "2026-06-02T10:07:24.422880+00:00"
+}
