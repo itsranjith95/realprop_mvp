@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>RealProp Report – {{ case_id }}</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Helvetica Neue', Arial, sans-serif;
+    font-size: 11px; line-height: 1.5;
+    color: #1a1a2e; background: #fff; padding: 24px 32px;
+  }
+  .page-header {
+    display: flex; justify-content: space-between; align-items: flex-start;
+    border-bottom: 2px solid #2c3e50; padding-bottom: 10px; margin-bottom: 16px;
+  }
+  .logo { font-size: 18px; font-weight: 700; color: #2c3e50; }
+  .logo span { color: #01696f; }
+  .meta { text-align: right; font-size: 10px; color: #6b7280; }
+
+  h2 {
+    font-size: 12px; font-weight: 600; text-transform: uppercase;
+    letter-spacing: 0.6px; color: #2c3e50;
+    border-left: 3px solid #01696f;
+    padding-left: 8px; margin: 18px 0 8px;
+  }
+
+  .risk-row { display: flex; gap: 16px; align-items: center; margin-bottom: 10px; }
+  .badge {
+    display: inline-block; padding: 3px 14px; border-radius: 20px;
+    font-size: 11px; font-weight: 700; color: #fff;
+  }
+  .risk-low    { background: #27ae60; }
+  .risk-medium { background: #e67e22; }
+  .risk-high   { background: #c0392b; }
+  .explanation { font-style: italic; font-size: 10px; color: #555; margin-top: 4px; }
+
+  table { width: 100%; border-collapse: collapse; margin-bottom: 12px; font-size: 10px; }
+  th { background: #2c3e50; color: #fff; padding: 5px 8px; text-align: left; font-size: 10px; }
+  td { padding: 4px 8px; border: 1px solid #e5e7eb; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8fafc; }
+  .pass { color: #27ae60; font-weight: 600; }
+  .fail { color: #c0392b; font-weight: 600; }
+  .warn { color: #e67e22; font-weight: 600; }
+
+  .review-block {
+    background: #f0f4f8; border: 1px solid #d1d5db;
+    border-radius: 6px; padding: 12px 16px; margin-bottom: 12px;
+  }
+  .review-block .label { font-weight: 600; min-width: 110px; display: inline-block; }
+  .notes-box {
+    background: #fffbeb; border: 1px solid #fcd34d;
+    border-radius: 4px; padding: 8px 12px; margin-top: 8px;
+    font-style: italic; color: #78350f;
+  }
+
+  .page-footer {
+    border-top: 1px solid #e5e7eb; padding-top: 6px; margin-top: 24px;
+    font-size: 9px; color: #9ca3af;
+    display: flex; justify-content: space-between;
+  }
+
+  @media print {
+    body { padding: 0; }
+    @page { size: A4; margin: 2cm; }
+  }
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div class="page-header">
+  <div class="logo">Real<span>Prop</span> MVP</div>
+  <div class="meta">
+    <div><strong>Due Diligence Report</strong></div>
+    <div>Case ID: {{ case_id }}</div>
+    <div>Generated: {{ generated_at }}</div>
+  </div>
+</div>
+
+<!-- RISK ASSESSMENT -->
+<h2>Risk Assessment</h2>
+<div class="risk-row">
+  {% set score = agent_output.risk_score | default(agent_output.final_risk_score) | default(0) | float %}
+  {% set label = agent_output.risk_label | default(agent_output.risk_band) | default('unknown') %}
+  {% if score >= 0.7 %}
+    <span class="badge risk-high">HIGH RISK</span>
+  {% elif score >= 0.4 %}
+    <span class="badge risk-medium">MEDIUM RISK</span>
+  {% else %}
+    <span class="badge risk-low">LOW RISK</span>
+  {% endif %}
+  <span>Score: <strong>{{ "%.2f"|format(score) }}</strong> &nbsp;|&nbsp; Label: <strong>{{ label | upper }}</strong></span>
+</div>
+{% if agent_output.explanation or agent_output.explanation_text %}
+<p class="explanation">{{ agent_output.explanation | default(agent_output.explanation_text) }}</p>
+{% endif %}
+
+<!-- EXTRACTED FIELDS -->
+<h2>Extracted Fields</h2>
+<table>
+  <thead><tr><th>Field</th><th>Value</th><th>Confidence</th></tr></thead>
+  <tbody>
+  {% set fields = entities.fields | default(entities.extracted_fields) | default(entities) %}
+  {% if fields is mapping %}
+    {% for field, meta in fields.items() %}
+    <tr>
+      <td>{{ field }}</td>
+      {% if meta is mapping %}
+        <td>{{ meta.value | default('—') }}</td>
+        <td>{{ meta.confidence | default('') }}</td>
+      {% else %}
+        <td>{{ meta }}</td><td></td>
+      {% endif %}
+    </tr>
+    {% endfor %}
+  {% else %}
+    <tr><td colspan="3">No fields extracted</td></tr>
+  {% endif %}
+  </tbody>
+</table>
+
+<!-- VALIDATION FLAGS -->
+<h2>Validation &amp; Rule Flags</h2>
+{% set flags = validation.flags | default(validation.rule_flags) | default([]) %}
+{% if flags %}
+<table>
+  <thead><tr><th>Rule</th><th>Status</th><th>Detail</th></tr></thead>
+  <tbody>
+  {% for flag in flags %}
+    {% if flag is mapping %}
+    {% set st = flag.status | default(flag.result) | default('') %}
+    <tr>
+      <td>{{ flag.rule | default(flag.name) | default('') }}</td>
+      <td class="{% if 'pass' in st|lower %}pass{% elif 'fail' in st|lower %}fail{% else %}warn{% endif %}">{{ st }}</td>
+      <td>{{ flag.detail | default(flag.message) | default('') }}</td>
+    </tr>
+    {% else %}
+    <tr><td colspan="3">{{ flag }}</td></tr>
+    {% endif %}
+  {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<p style="color:#6b7280;font-size:10px;">No validation flags recorded.</p>
+{% endif %}
+
+<!-- LAWYER REVIEW -->
+<h2>Lawyer Review</h2>
+{% if latest_review %}
+<div class="review-block">
+  <div><span class="label">Reviewer:</span>   {{ latest_review.lawyer_name | default('—') }}</div>
+  <div><span class="label">Action:</span>      {{ latest_review.action      | default('—') | upper }}</div>
+  <div><span class="label">Final Label:</span> {{ latest_review.final_label | default('—') }}</div>
+  <div><span class="label">Reviewed At:</span> {{ latest_review.reviewed_at | default('—') }}</div>
+  {% if latest_review.notes %}
+  <div class="notes-box">💬 {{ latest_review.notes }}</div>
+  {% endif %}
+</div>
+{% else %}
+<p style="color:#6b7280;font-size:10px;">No lawyer review recorded yet.</p>
+{% endif %}
+
+{% if review_history | length > 1 %}
+<h2>Review History</h2>
+<table>
+  <thead><tr><th>#</th><th>Reviewer</th><th>Action</th><th>Label</th><th>Timestamp</th></tr></thead>
+  <tbody>
+  {% for entry in review_history %}
+  <tr>
+    <td>{{ loop.index }}</td>
+    <td>{{ entry.lawyer_name | default('—') }}</td>
+    <td>{{ entry.action      | default('—') }}</td>
+    <td>{{ entry.final_label | default('—') }}</td>
+    <td>{{ entry.reviewed_at | default('—') }}</td>
+  </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endif %}
+
+<!-- FOOTER -->
+<div class="page-footer">
+  <span>RealProp MVP — Confidential. For lawyer use only.</span>
+  <span>{{ generated_at }}</span>
+</div>
+</body>
+</html>

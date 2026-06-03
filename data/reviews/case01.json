@@ -1,0 +1,10 @@
+[
+  {
+    "case_id": "case01",
+    "action": "request_clarification",
+    "notes": "ABCDEFGH",
+    "lawyer_name": "Advocate",
+    "final_label": "mother_deed",
+    "reviewed_at": "2026-06-03T07:57:48Z"
+  }
+]

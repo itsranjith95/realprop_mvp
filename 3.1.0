@@ -1,0 +1,10 @@
+Collecting reportlab
+  Downloading reportlab-4.5.1-py3-none-any.whl.metadata (1.7 kB)
+Requirement already satisfied: jinja2 in .\venv\Lib\site-packages (3.1.6)
+Requirement already satisfied: pillow>=9.0.0 in .\venv\Lib\site-packages (from reportlab) (12.2.0)
+Requirement already satisfied: charset-normalizer in .\venv\Lib\site-packages (from reportlab) (3.4.7)
+Requirement already satisfied: MarkupSafe>=2.0 in .\venv\Lib\site-packages (from jinja2) (3.0.3)
+Downloading reportlab-4.5.1-py3-none-any.whl (2.0 MB)
+   ---------------------------------------- 2.0/2.0 MB 251.2 kB/s  0:00:07
+Installing collected packages: reportlab
+Successfully installed reportlab-4.5.1

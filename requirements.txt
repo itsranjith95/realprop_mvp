@@ -41,3 +41,8 @@ rapidfuzz>=3.6.0
 # Without them the service falls back to a deterministic template explanation.
 
 python-dotenv>=1.0.1
+
+
+# Phase 7 additions
+reportlab>=4.1.0
+jinja2>=3.1.0

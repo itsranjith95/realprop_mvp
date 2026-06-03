@@ -1,0 +1,42 @@
+[
+  {
+    "case_id": "case_e4c7a0f05b",
+    "action": "approve",
+    "notes": "",
+    "lawyer_name": "Advocate",
+    "final_label": "mother_deed",
+    "reviewed_at": "2026-06-03T10:15:38Z"
+  },
+  {
+    "case_id": "case_e4c7a0f05b",
+    "action": "approve",
+    "notes": "XYZ",
+    "lawyer_name": "Advocate",
+    "final_label": "mother_deed",
+    "reviewed_at": "2026-06-03T10:16:02Z"
+  },
+  {
+    "case_id": "case_e4c7a0f05b",
+    "action": "approve",
+    "notes": "Mother deed - lawyer approval page check ",
+    "lawyer_name": "Advocate",
+    "final_label": "mother_deed",
+    "reviewed_at": "2026-06-03T11:07:24Z"
+  },
+  {
+    "case_id": "case_e4c7a0f05b",
+    "action": "approve",
+    "notes": "Khata Certificate - lawyer approval page check ",
+    "lawyer_name": "Advocate",
+    "final_label": "khata_certificate",
+    "reviewed_at": "2026-06-03T11:07:45Z"
+  },
+  {
+    "case_id": "case_e4c7a0f05b",
+    "action": "approve",
+    "notes": "Khata Certificate - lawyer approval page check 1",
+    "lawyer_name": "Advocate",
+    "final_label": "khata_certificate",
+    "reviewed_at": "2026-06-03T11:17:06Z"
+  }
+]
