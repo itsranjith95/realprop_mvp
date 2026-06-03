@@ -31,3 +31,13 @@ python-dateutil>=2.9.0
 
 # Phase 5 additions
 rapidfuzz>=3.6.0
+
+# Phase 6 additions (Agentic AI Layer)
+# LLM support (optional – only needed for live LLM explanations)
+# transformers>=4.40.0
+# torch>=2.2.0
+# sentencepiece>=0.2.0
+# Uncomment above three lines to enable Hugging Face LLM (flan-t5-base or similar).
+# Without them the service falls back to a deterministic template explanation.
+
+python-dotenv>=1.0.1

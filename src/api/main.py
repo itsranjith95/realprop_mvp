@@ -1,11 +1,11 @@
 from pathlib import Path
 import shutil
-
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 
 from src.api.routes.classify import router as classify_router
-from src.api.routes.pipeline import router as pipeline_router
-from src.api.routes.classification_runtime import router as runtime_router
+from src.api.routes.pipeline import router as pipeline_router 
+from src.api.routes.classification_runtime import router as runtime_router  
+from src.api.routes.agents import router as agents_router   
 from src.services.file_service import ensure_dir, is_allowed_file, new_id
 from src.services.ocr_pipeline import OCRPipeline
 
@@ -17,11 +17,12 @@ RAW_DIR = Path("data/raw")
 app.include_router(classify_router)
 app.include_router(pipeline_router)
 app.include_router(runtime_router)
+app.include_router(agents_router)          
 
 
 @app.get("/health")
 def health():
-    return {"status": "ok", "phase": "3b"}
+    return {"status": "ok", "phase": "6"}   
 
 
 @app.post("/v1/ocr/run")
