@@ -7,19 +7,20 @@ import os
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
-from logs.logging_config import setup_logging   
-setup_logging() 
+from logs.logging_config import setup_logging
+setup_logging()
 
 API_BASE = "http://127.0.0.1:8000"
 STRICT_MVP_LABELS = ["mother_deed", "khata_certificate"]
 
 st.set_page_config(page_title="RealProp MVP", layout="wide")
-st.title("RealProp MVP - Phase 3B")
-st.caption("OCR + classification + manifest reuse + review-to-training flow")
+st.title("RealProp MVP - Phase 7")
+st.caption("OCR + Classification + Full Process (Extract → Validate → Risk Score) + Lawyer Review")
 
 if "last_pipeline_result" not in st.session_state:
     st.session_state["last_pipeline_result"] = None
 
+# ── Sidebar ───────────────────────────────────────────────────────────────────
 with st.sidebar:
     st.subheader("Backend")
     st.write(API_BASE)
@@ -38,15 +39,26 @@ with st.sidebar:
         except Exception as e:
             st.error(str(e))
 
+    st.divider()
+    st.caption("Risk files location:")
+    st.code("data/results/risk_scores/\n{case_id}_risk.json")
+    st.caption("Reports location:")
+    st.code("data/reports/\n{case_id}_v{n}.pdf")
+
+# ── Mode selector ─────────────────────────────────────────────────────────────
 mode = st.radio(
     "Mode",
     [
         "OCR + Classify",
+        "Full Process (OCR → Extract → Validate → Risk)",
         "Classify from OCR Manifest",
     ],
     horizontal=True,
 )
 
+# ─────────────────────────────────────────────────────────────────────────────
+# Mode 1: OCR + Classify  (existing, unchanged)
+# ─────────────────────────────────────────────────────────────────────────────
 if mode == "OCR + Classify":
     st.header("Upload and Run Pipeline")
 
@@ -109,6 +121,120 @@ if mode == "OCR + Classify":
             except Exception as e:
                 st.error(str(e))
 
+# ─────────────────────────────────────────────────────────────────────────────
+# Mode 2: Full Process — NEW
+# ─────────────────────────────────────────────────────────────────────────────
+elif mode == "Full Process (OCR → Extract → Validate → Risk)":
+    st.header("Full Process — OCR + Extraction + Validation + Risk Score")
+    st.info(
+        "Runs the **complete pipeline** in one shot:\n\n"
+        "OCR → Classification → Entity Extraction → Validation → Rules & Risk Scoring\n\n"
+        "At the end, `data/results/risk_scores/{case_id}_risk.json` is written automatically. "
+        "The **Lawyer Review** page will then show the full risk report and PDF."
+    )
+
+    with st.form("full_process_form"):
+        case_id = st.text_input("Case ID", value="case01")
+        document_type = st.selectbox(
+            "Document Type Hint",
+            ["motherdeed", "khata", "unknown"],
+            index=0,
+        )
+        uploaded_file = st.file_uploader(
+            "Upload document",
+            type=["pdf", "png", "jpg", "jpeg", "webp"]
+        )
+        submit_full = st.form_submit_button("🚀 Run Full Process")
+
+    if submit_full:
+        if not case_id.strip():
+            st.warning("Please enter a case ID.")
+        elif uploaded_file is None:
+            st.warning("Please upload a file.")
+        else:
+            try:
+                files = {
+                    "file": (
+                        uploaded_file.name,
+                        uploaded_file.getvalue(),
+                        uploaded_file.type or "application/octet-stream",
+                    )
+                }
+                data = {
+                    "case_id": case_id.strip(),
+                    "document_type": document_type,
+                }
+
+                with st.spinner("Running full pipeline — this may take a minute..."):
+                    res = requests.post(
+                        f"{API_BASE}/api/v1/pipeline/full-process",
+                        files=files,
+                        data=data,
+                        timeout=600,
+                    )
+
+                if res.status_code == 200:
+                    payload = res.json()
+                    st.session_state["last_pipeline_result"] = payload
+                    st.success("✅ Full pipeline completed successfully.")
+
+                    # Risk summary metrics
+                    st.subheader("Risk Assessment")
+                    col1, col2, col3 = st.columns(3)
+                    risk_score = payload.get("risk_score", "—")
+                    risk_label = str(payload.get("risk_label", "—")).upper()
+                    mandatory  = payload.get("mandatory_review", False)
+
+                    col1.metric("Risk Score", risk_score)
+                    col2.metric("Risk Label", risk_label)
+                    col3.metric("Mandatory Review", "⚠️ Yes" if mandatory else "✅ No")
+
+                    if payload.get("risk_summary"):
+                        st.info(payload["risk_summary"])
+
+                    # Rule hits table
+                    rule_hits = payload.get("rule_hits", [])
+                    if rule_hits:
+                        st.subheader("Triggered Rules")
+                        import pandas as pd
+                        hits_df = pd.DataFrame([
+                            {
+                                "Rule ID":   h.get("rule_id", ""),
+                                "Name":      h.get("name", ""),
+                                "Severity":  h.get("severity", ""),
+                                "Points":    h.get("points", 0),
+                                "Mandatory": "Yes" if h.get("mandatory_review") else "No",
+                            }
+                            for h in rule_hits
+                        ])
+                        st.dataframe(hits_df, use_container_width=True, hide_index=True)
+                    else:
+                        st.success("No rule violations triggered.")
+
+                    risk_file = f"data/results/risk_scores/{case_id.strip()}_risk.json"
+                    st.caption(f"📄 Risk file written → `{risk_file}`")
+                    st.caption(
+                        "👉 Go to the **Lawyer Review** page (sidebar) to review this case and generate the PDF report."
+                    )
+
+                elif res.status_code == 409:
+                    try:
+                        detail = res.json().get("detail", "Another job is already running.")
+                    except Exception:
+                        detail = "Another job is already running."
+                    st.warning(detail)
+                else:
+                    try:
+                        st.error(res.json())
+                    except Exception:
+                        st.error(res.text)
+
+            except Exception as e:
+                st.error(str(e))
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Mode 3: Classify from Manifest  (existing, unchanged)
+# ─────────────────────────────────────────────────────────────────────────────
 else:
     st.header("Classify from Existing OCR Manifest")
 
@@ -144,10 +270,15 @@ else:
             except Exception as e:
                 st.error(str(e))
 
+# ─────────────────────────────────────────────────────────────────────────────
+# Result display (shared across all modes that produce a pipeline result)
+# ─────────────────────────────────────────────────────────────────────────────
 result = st.session_state.get("last_pipeline_result")
 
 if result:
-    st.header("Prediction")
+    # Only show classification result panel for OCR + Classify and Manifest modes
+    # Full Process already shows its own risk metrics above
+    current_mode = st.session_state.get("_last_mode", mode)
 
     classification = result.get("classification", {})
     predicted_label = classification.get("doc_type", "unknown")
@@ -157,71 +288,76 @@ if result:
     matched_keywords = classification.get("matched_keywords", [])
     reasoning = classification.get("reasoning", "")
 
-    col1, col2, col3, col4 = st.columns(4)
-    col1.metric("Predicted Type", predicted_label)
-    col2.metric("Confidence", f"{confidence:.2f}")
-    col3.metric("Method", method)
-    col4.metric("Needs Review", "Yes" if needs_review else "No")
+    if mode != "Full Process (OCR → Extract → Validate → Risk)":
+        st.header("Prediction")
 
-    if matched_keywords:
-        st.write("**Matched Keywords:**", ", ".join(matched_keywords))
+        col1, col2, col3, col4 = st.columns(4)
+        col1.metric("Predicted Type", predicted_label)
+        col2.metric("Confidence", f"{confidence:.2f}")
+        col3.metric("Method", method)
+        col4.metric("Needs Review", "Yes" if needs_review else "No")
 
-    if reasoning:
-        st.write("**Reasoning:**", reasoning)
+        if matched_keywords:
+            st.write("**Matched Keywords:**", ", ".join(matched_keywords))
 
-    if needs_review or predicted_label not in STRICT_MVP_LABELS:
-        st.warning("Low confidence or non-MVP label detected. Manual confirmation required.")
+        if reasoning:
+            st.write("**Reasoning:**", reasoning)
 
-    confirmed_label = st.selectbox(
-        "Confirmed Label",
-        STRICT_MVP_LABELS + ["other"],
-        index=0 if predicted_label == "mother_deed" else 1 if predicted_label == "khata_certificate" else 2,
-    )
-    review_notes = st.text_area("Reviewer Notes", placeholder="Enter review notes")
+        if needs_review or predicted_label not in STRICT_MVP_LABELS:
+            st.warning("Low confidence or non-MVP label detected. Manual confirmation required.")
 
-    col_a, col_b = st.columns(2)
+        confirmed_label = st.selectbox(
+            "Confirmed Label",
+            STRICT_MVP_LABELS + ["other"],
+            index=0 if predicted_label == "mother_deed" else 1 if predicted_label == "khata_certificate" else 2,
+        )
+        review_notes = st.text_area("Reviewer Notes", placeholder="Enter review notes")
 
-    with col_a:
-        if st.button("Approve Review Decision"):
-            reviewed = dict(result)
-            reviewed["review"] = {
-                "confirmed_label": confirmed_label,
-                "review_notes": review_notes,
-                "review_required": bool(needs_review),
-            }
-            st.session_state["last_pipeline_result"] = reviewed
-            st.success(f"Manual review saved with label: {confirmed_label}")
+        col_a, col_b = st.columns(2)
 
-    with col_b:
-        if st.button("Add Reviewed Example to Training Data"):
-            aggregated_text = result.get("aggregated_text", "")
-            case_id = result.get("case_id", "unknown_case")
-            document_id = result.get("document_id", "unknown_doc")
+        with col_a:
+            if st.button("Approve Review Decision"):
+                reviewed = dict(result)
+                reviewed["review"] = {
+                    "confirmed_label": confirmed_label,
+                    "review_notes": review_notes,
+                    "review_required": bool(needs_review),
+                }
+                st.session_state["last_pipeline_result"] = reviewed
+                st.success(f"Manual review saved with label: {confirmed_label}")
 
-            try:
-                res = requests.post(
-                    f"{API_BASE}/api/v1/runtime/save-review-example",
-                    json={
-                        "case_id": case_id,
-                        "document_id": document_id,
-                        "confirmed_label": confirmed_label,
-                        "aggregated_text": aggregated_text,
-                        "source": "manual_review",
-                        "review_notes": review_notes,
-                    },
-                    timeout=30,
-                )
+        with col_b:
+            if st.button("Add Reviewed Example to Training Data"):
+                aggregated_text = result.get("aggregated_text", "")
+                _case_id = result.get("case_id", "unknown_case")
+                document_id = result.get("document_id", "unknown_doc")
 
-                if res.status_code == 200:
-                    st.success(res.json())
-                else:
-                    try:
-                        st.error(res.json())
-                    except Exception:
-                        st.error(res.text)
-            except Exception as e:
-                st.error(str(e))
+                try:
+                    res_save = requests.post(
+                        f"{API_BASE}/api/v1/runtime/save-review-example",
+                        json={
+                            "case_id": _case_id,
+                            "document_id": document_id,
+                            "confirmed_label": confirmed_label,
+                            "aggregated_text": aggregated_text,
+                            "source": "manual_review",
+                            "review_notes": review_notes,
+                        },
+                        timeout=30,
+                    )
 
+                    if res_save.status_code == 200:
+                        st.success(res_save.json())
+                    else:
+                        try:
+                            st.error(res_save.json())
+                        except Exception:
+                            st.error(res_save.text)
+                except Exception as e:
+                    st.error(str(e))
+
+    # ── Tabs (always shown for any result) ───────────────────────────────────
+    st.divider()
     tab1, tab2, tab3 = st.tabs(["OCR Text", "OCR JSON", "Final JSON"])
 
     with tab1:
