@@ -106,3 +106,38 @@ def update_case_status(
     )
 
     return orm_to_case(row)
+
+def update_case_status(case_id: str, status: str) -> bool:
+    """
+    Update the status of a case in the SQLite DB.
+    Called by Phase 7 when a lawyer approves / marks high risk.
+
+    Parameters
+    ----------
+    case_id : str
+    status  : e.g. 'REVIEW_COMPLETE', 'HIGH_RISK', 'NEEDS_CLARIFICATION'
+
+    Returns
+    -------
+    bool – True if a row was updated, False if case_id not found
+    """
+    import sqlite3
+    from src.pipelines.review_pipeline import DB_PATH
+
+    try:
+        conn = sqlite3.connect(str(DB_PATH))
+        cur = conn.cursor()
+        cur.execute(
+            "UPDATE cases SET status = ? WHERE id = ?",
+            (status, case_id),
+        )
+        affected = cur.rowcount
+        conn.commit()
+        conn.close()
+        return affected > 0
+    except Exception as exc:
+        import logging
+        logging.getLogger(__name__).error(
+            "Failed to update case status for %s: %s", case_id, exc
+        )
+        return False

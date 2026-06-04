@@ -113,3 +113,38 @@ class ExtractedEntity(BaseModel):
     source_doc: str = ""
     extraction_method: str = "regex"     # "regex" | "spacy" | "llm"
     created_at: str = ""
+    
+    
+# ── Phase 7 additions ─────────────────────────────────────────────────────────
+
+class ReviewActionRequest(BaseModel):
+    """Request body for POST /api/v1/review/{case_id}/action"""
+    action: str = Field(..., description="approve | request_clarification | mark_high_risk")
+    notes: str = Field(default="", description="Lawyer comments")
+    lawyer_name: str = Field(default="Lawyer")
+    final_label: str = Field(default="", description="Confirmed document label")
+
+
+class ReviewActionRecord(BaseModel):
+    """Stored review record returned by the API"""
+    case_id: str
+    action: str
+    notes: str
+    lawyer_name: str
+    final_label: str
+    reviewed_at: str
+
+
+class ReportGenerateRequest(BaseModel):
+    """Request body for POST /api/v1/review/{case_id}/report"""
+    case_id: str
+
+
+class ReportGenerateResponse(BaseModel):
+    """Response after PDF generation"""
+    case_id: str
+    report_path: str
+    version: int
+    message: str = "Report generated successfully"
+    
+    

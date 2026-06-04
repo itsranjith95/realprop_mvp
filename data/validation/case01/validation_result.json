@@ -1,0 +1,24 @@
+{
+  "overall_status": "FAIL",
+  "flags": [
+    {
+      "rule": "MISSING_SELLER_NAME",
+      "status": "FAIL",
+      "detail": "seller_name not found in extracted fields",
+      "severity": "high"
+    },
+    {
+      "rule": "MISSING_BUYER_NAME",
+      "status": "FAIL",
+      "detail": "buyer_name not found in extracted fields",
+      "severity": "high"
+    },
+    {
+      "rule": "MISSING_PROPERTY_NUMBER",
+      "status": "FAIL",
+      "detail": "property_number not found in extracted fields",
+      "severity": "high"
+    }
+  ],
+  "validation_method": "fallback_rules"
+}

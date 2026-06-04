@@ -1,6 +1,6 @@
 {
   "case_id": "case_e4c7a0f05b",
-  "generated_at": "2026-06-03T11:07:50Z",
+  "generated_at": "2026-06-04T11:07:53Z",
   "case_status": "uploaded",
   "ocr_pages": [],
   "entities": {},
@@ -10,44 +10,20 @@
   "review_history": [
     {
       "case_id": "case_e4c7a0f05b",
-      "action": "approve",
-      "notes": "",
+      "action": "mark_high_risk",
+      "notes": "owner name is not matching",
       "lawyer_name": "Advocate",
       "final_label": "mother_deed",
-      "reviewed_at": "2026-06-03T10:15:38Z"
-    },
-    {
-      "case_id": "case_e4c7a0f05b",
-      "action": "approve",
-      "notes": "XYZ",
-      "lawyer_name": "Advocate",
-      "final_label": "mother_deed",
-      "reviewed_at": "2026-06-03T10:16:02Z"
-    },
-    {
-      "case_id": "case_e4c7a0f05b",
-      "action": "approve",
-      "notes": "Mother deed - lawyer approval page check ",
-      "lawyer_name": "Advocate",
-      "final_label": "mother_deed",
-      "reviewed_at": "2026-06-03T11:07:24Z"
-    },
-    {
-      "case_id": "case_e4c7a0f05b",
-      "action": "approve",
-      "notes": "Khata Certificate - lawyer approval page check ",
-      "lawyer_name": "Advocate",
-      "final_label": "khata_certificate",
-      "reviewed_at": "2026-06-03T11:07:45Z"
+      "reviewed_at": "2026-06-04T11:07:49Z"
     }
   ],
   "latest_review": {
     "case_id": "case_e4c7a0f05b",
-    "action": "approve",
-    "notes": "Khata Certificate - lawyer approval page check ",
+    "action": "mark_high_risk",
+    "notes": "owner name is not matching",
     "lawyer_name": "Advocate",
-    "final_label": "khata_certificate",
-    "reviewed_at": "2026-06-03T11:07:45Z"
+    "final_label": "mother_deed",
+    "reviewed_at": "2026-06-04T11:07:49Z"
   },
   "documents": [
     {

@@ -1,7 +1,7 @@
 """
 Phase 7 – Lawyer Review UI
 Reads from ACTUAL project artifact paths:
-  - Cases / entities / documents → SQLite app.db
+  - Cases / entities / documents → SQLite data/app.db
   - Risk output                  → data/results/risk_scores/{case_id}_risk.json
   - OCR pages                    → data/ocr/{case_id}/{doc_id}/page*.json
   - Reviews                      → data/reviews/{case_id}.json
@@ -59,6 +59,10 @@ def _load_json(path: Path) -> dict | list:
     return {}
 
 
+# ---------------------------------------------------------------------------
+# Case List View
+# ---------------------------------------------------------------------------
+
 def render_case_list():
     st.subheader("📋 Case List")
 
@@ -87,7 +91,9 @@ def render_case_list():
         risk_label = risk_data.get("risk_label", "—")
 
         doc_type_summary = c.get("doc_type", "unknown")
-        pretty_doc_types = ", ".join(display_label(x.strip()) for x in str(doc_type_summary).split(","))
+        pretty_doc_types = ", ".join(
+            display_label(x.strip()) for x in str(doc_type_summary).split(",")
+        )
 
         rows.append({
             "Case ID": case_id,
@@ -100,7 +106,7 @@ def render_case_list():
         })
 
     df = pd.DataFrame(rows)
-    st.dataframe(df, width="stretch", hide_index=True)
+    st.dataframe(df, use_container_width=True, hide_index=True)
 
     case_ids = [c["case_id"] for c in db_cases]
     selected = st.selectbox("Open case detail →", options=["— select —"] + case_ids)
@@ -110,6 +116,10 @@ def render_case_list():
         st.rerun()
 
 
+# ---------------------------------------------------------------------------
+# Case Detail View
+# ---------------------------------------------------------------------------
+
 def render_case_detail(case_id: str):
     st.subheader(f"🗂 Case Detail — `{case_id}`")
 
@@ -117,15 +127,19 @@ def render_case_detail(case_id: str):
         st.session_state["view"] = "list"
         st.rerun()
 
+    # Load artefacts
     entities = _fetch_entities_from_db(case_id)
     documents = _fetch_documents_for_case(case_id)
     risk_data = _load_json(RISK_SCORES_DIR / f"{case_id}_risk.json")
 
     review_history = _load_json(REVIEWS_DIR / f"{case_id}.json")
     latest_review = (
-        review_history[-1] if isinstance(review_history, list) and review_history else {}
+        review_history[-1]
+        if isinstance(review_history, list) and review_history
+        else {}
     )
 
+    # ---- Document Viewer ----
     with st.expander("📄 Document Pages (OCR)", expanded=False):
         ocr_case_dir = OCR_DIR / case_id
         ocr_pages_found = False
@@ -149,7 +163,7 @@ def render_case_detail(case_id: str):
 
                     st.markdown(f"**Page {page_idx}** — `{pf}`")
                     if img_path and Path(img_path).exists():
-                        st.image(img_path, width="stretch")
+                        st.image(img_path, use_column_width=True)
                     elif img_path:
                         st.caption(f"Image path: `{img_path}` _(file not found locally)_")
 
@@ -169,6 +183,7 @@ def render_case_detail(case_id: str):
                     f"| status: {doc.get('status','?')} | path: `{doc.get('path','')}`"
                 )
 
+    # ---- Three analysis panels ----
     col1, col2, col3 = st.columns(3)
 
     with col1:
@@ -181,82 +196,93 @@ def render_case_detail(case_id: str):
                         if isinstance(meta, dict):
                             val = meta.get("normalized") or meta.get("value", "—")
                             conf = meta.get("confidence", "")
-                            try:
-                                conf_str = f" _(conf: {float(conf):.2f})_" if conf else ""
-                            except Exception:
-                                conf_str = f" _(conf: {conf})_" if conf else ""
+                            conf_str = f" _(conf: {conf})_" if conf else ""
                             st.markdown(f"- **{field}**: {val}{conf_str}")
                         else:
                             st.markdown(f"- **{field}**: {meta}")
         else:
-            st.info("No extracted entities found in database for this case.")
+            st.info("No extracted fields in DB for this case.")
 
     with col2:
-        st.markdown("### ✅ Rule Flags")
+        st.markdown("### ✅ Validation & Rules")
         if risk_data:
             rule_hits = risk_data.get("rule_hits", [])
             overall = risk_data.get("risk_label", "")
             mandatory = risk_data.get("mandatory_review", False)
 
             if overall:
-                overall_str = str(overall).lower()
-                colour = "red" if overall_str in {"red", "high"} else "orange" if overall_str in {"yellow", "medium"} else "green"
-                st.markdown(f"**Overall:** :{colour}[{overall}]")
+                colour = (
+                    "red" if "high" in str(overall).lower()
+                    else "orange" if "medium" in str(overall).lower()
+                    else "green"
+                )
+                st.markdown(f"**Overall Risk:** :{colour}[{overall.upper()}]")
+
             if mandatory:
-                st.warning("⚠️ Mandatory review required")
+                st.warning("⚠️ Mandatory human review required.")
 
             if rule_hits:
-                for h in rule_hits:
-                    if isinstance(h, dict):
-                        sev = h.get("severity", "")
-                        icon = "🔴" if sev == "critical" else "🟠" if sev == "high" else "🟡"
-                        st.markdown(
-                            f"{icon} **{h.get('rule_id','')}** (+{h.get('points',0)} pts)"
-                        )
-                        evidence = h.get("evidence", {})
-                        if evidence:
-                            st.caption(str(evidence)[:200])
+                for hit in rule_hits:
+                    sev = hit.get("severity", "")
+                    icon = "🔴" if sev == "critical" else "🟡" if sev == "high" else "🟢"
+                    st.markdown(
+                        f"{icon} **{hit.get('name', hit.get('rule_id', ''))}** "
+                        f"— sev: {sev} | pts: {hit.get('points', 0)}"
+                    )
             else:
-                st.success("No rule flags triggered.")
+                st.success("No rule violations triggered.")
         else:
-            st.info("Phase 6 output not available for this case.")
+            st.info("No risk/validation output found. Run Full Process first.")
 
     with col3:
         st.markdown("### 🤖 Risk Score")
         if risk_data:
-            score = risk_data.get("risk_score", None)
-            label = risk_data.get("risk_label", "—")
+            risk_score = risk_data.get("risk_score", None)
+            risk_label = risk_data.get("risk_label", "—")
             summary = risk_data.get("summary", "")
 
-            if score is not None:
+            if risk_score is not None:
                 try:
-                    colour = "red" if float(score) >= 70 else "orange" if float(score) >= 40 else "green"
+                    score_f = float(risk_score)
+                    colour = (
+                        "red" if score_f >= 70
+                        else "orange" if score_f >= 40
+                        else "green"
+                    )
                 except Exception:
                     colour = "gray"
-                st.metric("Risk Score", str(score))
-                st.markdown(f"Label: :{colour}[**{label}**]")
+                st.metric("Risk Score", f"{risk_score}")
+                st.markdown(f"Risk Label: :{colour}[**{risk_label.upper()}**]")
 
             if summary:
                 st.markdown(f"**Summary:** {summary}")
 
-            with st.expander("Full risk JSON", expanded=False):
-                st.json(risk_data)
+            extras = {
+                k: v for k, v in risk_data.items()
+                if k not in {"risk_score", "risk_label", "summary", "rule_hits",
+                              "mandatory_review", "case_id", "doc_type"}
+            }
+            if extras:
+                with st.expander("Full risk JSON", expanded=False):
+                    st.json(extras)
         else:
-            st.info("Phase 6 output not available for this case.")
+            st.info("No agent/risk output available.")
 
     st.divider()
 
+    # ---- Current review status banner ----
     if latest_review:
         action = latest_review.get("action", "pending")
         colour = STATUS_COLOUR.get(action, "gray")
         st.markdown(
-            f"**Current Review Status:** :{colour}[**{action}**]"
-            f" &nbsp;|&nbsp; By **{latest_review.get('lawyer_name','—')}**"
-            f" at {latest_review.get('reviewed_at','—')}"
+            f"**Current Status:** :{colour}[{action}] "
+            f"&nbsp;|&nbsp; Last reviewed by **{latest_review.get('lawyer_name', '—')}** "
+            f"at {latest_review.get('reviewed_at', '—')}"
         )
         if latest_review.get("notes"):
-            st.caption(f"💬 {latest_review['notes']}")
+            st.caption(f"Note: {latest_review['notes']}")
 
+    # ---- Lawyer Controls ----
     st.markdown("### 📝 Lawyer Review Controls")
 
     with st.form(key=f"review_form_{case_id}"):
@@ -285,19 +311,37 @@ def render_case_detail(case_id: str):
             action=action_choice,
             notes=comment,
             lawyer_name=lawyer_name,
-            final_label=normalize_label(final_label),
+            final_label=final_label,
         )
-        st.success(f"✅ Review action **{action_choice}** saved for case `{case_id}`.")
+        st.success(f"Review action **{action_choice}** saved successfully.")
         st.rerun()
+
+    # ---- Review History ----
+    if isinstance(review_history, list) and len(review_history) > 1:
+        with st.expander(f"📜 Review History ({len(review_history)} entries)", expanded=False):
+            import pandas as pd
+            hist_rows = [
+                {
+                    "#": i + 1,
+                    "Reviewer": r.get("lawyer_name", "—"),
+                    "Action": r.get("action", "—"),
+                    "Label": display_label(r.get("final_label", "—")),
+                    "Notes": r.get("notes", ""),
+                    "Timestamp": r.get("reviewed_at", "—"),
+                }
+                for i, r in enumerate(review_history)
+            ]
+            st.dataframe(pd.DataFrame(hist_rows), use_container_width=True, hide_index=True)
 
     st.divider()
 
+    # ---- Report Generation ----
     st.markdown("### 📑 Generate PDF Report")
     col_a, col_b = st.columns([2, 1])
 
     with col_a:
         if st.button("🖨 Generate & Download Report", key=f"gen_{case_id}"):
-            with st.spinner("Building report from database and artifacts…"):
+            with st.spinner("Building report…"):
                 try:
                     ctx = build_report_context(case_id)
                     report_path = render_report_to_pdf(ctx)
@@ -305,12 +349,21 @@ def render_case_detail(case_id: str):
                     st.success(f"Report saved: `{report_path}`")
                 except Exception as exc:
                     st.error(f"Report generation failed: {exc}")
-                    st.exception(exc)
 
     with col_b:
-        rp_str = st.session_state.get(f"report_path_{case_id}")
-        if rp_str:
-            rp = Path(rp_str)
+        report_path_str = st.session_state.get(f"report_path_{case_id}")
+        if not report_path_str:
+            # Auto-detect latest existing report
+            existing = sorted(
+                (Path("data/reports")).glob(f"{case_id}_v*.pdf"),
+                key=lambda p: p.stat().st_mtime,
+                reverse=True,
+            )
+            if existing:
+                report_path_str = str(existing[0])
+
+        if report_path_str:
+            rp = Path(report_path_str)
             if rp.exists():
                 with open(rp, "rb") as fh:
                     file_bytes = fh.read()
@@ -320,13 +373,22 @@ def render_case_detail(case_id: str):
                     data=file_bytes,
                     file_name=rp.name,
                     mime=mime,
-                    key=f"dl_{case_id}",
+                    key=f"dl_{case_id}_{rp.name}",
                 )
 
 
+# ---------------------------------------------------------------------------
+# Main entry point
+# ---------------------------------------------------------------------------
+
 def main():
+    st.set_page_config(
+        page_title="RealProp – Lawyer Review",
+        layout="wide",
+        page_icon="⚖️",
+    )
     st.title("⚖️ RealProp MVP — Lawyer Review")
-    st.caption("Phase 7 · Review cases · Add comments · Generate PDF reports")
+    st.caption("Phase 7 · Review cases, add comments, generate PDF reports")
 
     if "view" not in st.session_state:
         st.session_state["view"] = "list"
@@ -335,22 +397,21 @@ def main():
 
     with st.sidebar:
         st.header("Navigation")
-        if st.button("📋 All Cases"):
+        if st.button("📋 Case List"):
             st.session_state["view"] = "list"
             st.rerun()
         if st.session_state.get("active_case"):
-            if st.button(f"🗂 {st.session_state['active_case'][:12]}…"):
+            if st.button(f"🗂 {st.session_state['active_case']}"):
                 st.session_state["view"] = "detail"
                 st.rerun()
         st.divider()
         st.caption("Artifact paths:")
         st.code(
-            "data/app.db               ← entities, cases\n"
-            "data/ocr/{case}/{doc}/    ← page*.json\n"
-            "data/results/risk_scores/ ← {case}_risk.json\n"
-            "data/reviews/             ← {case}.json\n"
-            "data/reports/             ← {case}_v{n}.pdf\n"
-            "data/report_contexts/     ← {case}_v{n}.json"
+            "data/app.db\n"
+            "data/results/risk_scores/\n"
+            "data/ocr/\n"
+            "data/reviews/\n"
+            "data/reports/"
         )
 
     if st.session_state["view"] == "detail" and st.session_state.get("active_case"):

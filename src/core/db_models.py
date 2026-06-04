@@ -62,3 +62,33 @@ class ExtractedEntityORM(Base):
     source_doc       = Column(String(255), nullable=True)
     extraction_method= Column(String(50),  nullable=False, default="regex")
     created_at       = Column(DateTime(timezone=True), nullable=False)
+    
+    
+# ── Phase 7 addition ──────────────────────────────────────────────────────────
+
+class LawyerReview(Base):
+    """
+    Persists lawyer review actions in SQLite.
+    Note: review_pipeline.py also writes JSON files to data/reviews/
+    This table is the canonical source for API queries.
+    """
+    __tablename__ = "lawyer_reviews"
+
+    id           = Column(Integer, primary_key=True, autoincrement=True)
+    case_id      = Column(String, ForeignKey("cases.id"), nullable=False, index=True)
+    action       = Column(String, nullable=False)          # approve | request_clarification | mark_high_risk
+    notes        = Column(Text,   default="")
+    lawyer_name  = Column(String, default="Lawyer")
+    final_label  = Column(String, default="")
+    reviewed_at  = Column(DateTime, default=datetime.utcnow)
+
+    def to_dict(self) -> dict:
+        return {
+            "id":           self.id,
+            "case_id":      self.case_id,
+            "action":       self.action,
+            "notes":        self.notes,
+            "lawyer_name":  self.lawyer_name,
+            "final_label":  self.final_label,
+            "reviewed_at":  self.reviewed_at.isoformat() if self.reviewed_at else "",
+        }
