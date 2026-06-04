@@ -52,3 +52,21 @@ stages:
       hash: md5
       md5: 05c74a2d89c7a8b0c5ca6cd46e4a2fce
       size: 522
+  data_ingest:
+    cmd: python -m src.pipelines.data_ingest_pipeline
+    deps:
+    - path: data/raw/
+      hash: md5
+      md5: 5fd09548fe0401b7275e26f83e0a9506.dir
+      size: 12389101
+      nfiles: 13
+    - path: src/pipelines/data_ingest_pipeline.py
+      hash: md5
+      md5: cc18ba58468928cab78396e8b3e00fc0
+      size: 3643
+    outs:
+    - path: data/ocr_input/
+      hash: md5
+      md5: 0cb467c1aefd53685cae095eb38dd87d.dir
+      size: 12393584
+      nfiles: 11
