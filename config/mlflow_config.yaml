@@ -1,3 +1,27 @@
-experiment_name: doctype_classifier_mvp
-tracking_uri: file:./mlruns
-registered_model_name: doctypeclassifiermvp
+# Phase 8.1 — MLflow Configuration
+mlflow:
+  tracking_uri: "http://localhost:5000"      # Override with MLFLOW_TRACKING_URI env var
+  backend_store: "sqlite:///mlflow.db"
+  artifact_root: "./mlruns"
+
+experiments:
+  classification:
+    name: "doc_type_classifier_mvp"
+    tags:
+      project: "realprop_mvp"
+      domain: "property_due_diligence"
+      city: "bengaluru"
+      doc_types: "mother_deed,khata,ec,sale_deed"
+
+  extraction:
+    name: "entity_extraction_mvp"
+    tags:
+      project: "realprop_mvp"
+      domain: "ner_extraction"
+
+models:
+  classification:
+    registered_name: "doc_type_classifier_mvp"
+    artifact_path: "data/models/classification/tfidf_logreg.joblib"
+    framework: "sklearn"
+    production_stage: "Production"

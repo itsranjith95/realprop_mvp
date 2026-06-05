@@ -75,7 +75,7 @@ stages:
     outs:
     - path: data/ocr_input/
       hash: md5
-      md5: 36e6230fe7a265ff4e62907bc3b548bd.dir
+      md5: 201cc2ae8484bee01ce81dfcb9ac227d.dir
       size: 17068325
       nfiles: 13
   ocr:
@@ -83,7 +83,7 @@ stages:
     deps:
     - path: data/ocr_input/
       hash: md5
-      md5: 36e6230fe7a265ff4e62907bc3b548bd.dir
+      md5: 201cc2ae8484bee01ce81dfcb9ac227d.dir
       size: 17068325
       nfiles: 13
     - path: src/pipelines/ocr_pipeline.py
@@ -109,7 +109,7 @@ stages:
     outs:
     - path: data/ocr/
       hash: md5
-      md5: 20e637420efbc1a4c9d52295d99f2940.dir
+      md5: 75354b90c831e84f1b7910c18a694b55.dir
       size: 121180
       nfiles: 38
   register_models:
@@ -141,7 +141,7 @@ stages:
       size: 11732
     - path: data/ocr/
       hash: md5
-      md5: 20e637420efbc1a4c9d52295d99f2940.dir
+      md5: 75354b90c831e84f1b7910c18a694b55.dir
       size: 121180
       nfiles: 38
     - path: src/classification/ml_classifier.py
@@ -155,7 +155,7 @@ stages:
     outs:
     - path: data/classification/
       hash: md5
-      md5: e8f4a9d1bff204a79cc0905748cd9285.dir
+      md5: 82dd838053d10d14c89c41591c88ff42.dir
       size: 5927
       nfiles: 12
   extraction:
@@ -167,12 +167,12 @@ stages:
       size: 1824
     - path: data/classification/
       hash: md5
-      md5: e8f4a9d1bff204a79cc0905748cd9285.dir
+      md5: 82dd838053d10d14c89c41591c88ff42.dir
       size: 5927
       nfiles: 12
     - path: data/ocr/
       hash: md5
-      md5: 20e637420efbc1a4c9d52295d99f2940.dir
+      md5: 75354b90c831e84f1b7910c18a694b55.dir
       size: 121180
       nfiles: 38
     - path: src/pipelines/extraction_pipeline.py
@@ -193,16 +193,16 @@ stages:
     outs:
     - path: data/extracted/
       hash: md5
-      md5: 793c85251aee0ef3899ecb4b6c17e45f.dir
-      size: 67139
+      md5: ad2d47406cbffdbed494dd0ad1c6417b.dir
+      size: 67105
       nfiles: 12
   validate:
     cmd: python -m src.pipelines.validation_pipeline
     deps:
     - path: data/extracted/
       hash: md5
-      md5: 793c85251aee0ef3899ecb4b6c17e45f.dir
-      size: 67139
+      md5: ad2d47406cbffdbed494dd0ad1c6417b.dir
+      size: 67105
       nfiles: 12
     - path: src/core/validation_models.py
       hash: md5
@@ -217,4 +217,30 @@ stages:
       hash: md5
       md5: 5b64abdebfa6763b5ef21bc7b36e4453.dir
       size: 7346
+      nfiles: 4
+  rules:
+    cmd: python -m src.pipelines.rules_pipeline
+    deps:
+    - path: config/rules_config.yaml
+      hash: md5
+      md5: 402479bb3db5f584605587e267fdd46e
+      size: 5037
+    - path: data/results/validations/
+      hash: md5
+      md5: 5b64abdebfa6763b5ef21bc7b36e4453.dir
+      size: 7346
+      nfiles: 4
+    - path: src/core/validation_models.py
+      hash: md5
+      md5: a1fec3fb579da932904026bea5b71007
+      size: 2825
+    - path: src/pipelines/rules_pipeline.py
+      hash: md5
+      md5: 69412a603287e12752efd60c878985ac
+      size: 10830
+    outs:
+    - path: data/results/risk_scores/
+      hash: md5
+      md5: ecead09cbdaec914f0b5a234bcc8bcdd.dir
+      size: 8093
       nfiles: 4

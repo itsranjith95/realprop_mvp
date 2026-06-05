@@ -1,0 +1,52 @@
+# Phase 8.1 — Docker Compose: MLflow Tracking Server + DVC pipeline runner
+version: "3.9"
+
+services:
+
+  # ── MLflow Tracking Server ───────────────────────────────────────────────
+  mlflow:
+    image: ghcr.io/mlflow/mlflow:v2.13.0
+    container_name: realprop_mlflow
+    restart: unless-stopped
+    ports:
+      - "5000:5000"
+    volumes:
+      - mlflow_data:/mlflow/mlruns
+      - ./mlflow.db:/mlflow/mlflow.db
+    command: >
+      mlflow server
+        --host 0.0.0.0
+        --port 5000
+        --backend-store-uri sqlite:////mlflow/mlflow.db
+        --default-artifact-root /mlflow/mlruns
+    environment:
+      MLFLOW_TRACKING_URI: "http://mlflow:5000"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # ── DVC / Pipeline Runner ────────────────────────────────────────────────
+  pipeline_runner:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.pipeline
+    container_name: realprop_pipeline
+    depends_on:
+      mlflow:
+        condition: service_healthy
+    environment:
+      MLFLOW_TRACKING_URI: "http://mlflow:5000"
+      PYTHONUNBUFFERED: "1"
+    volumes:
+      - ../data:/app/data
+      - ../models:/app/models
+      - ../config:/app/config
+      - ../src:/app/src
+    command: bash scripts/run_dvc_pipeline.sh
+    profiles:
+      - run-pipeline   # docker compose --profile run-pipeline up
+
+volumes:
+  mlflow_data:

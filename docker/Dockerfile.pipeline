@@ -1,0 +1,35 @@
+# Phase 8.1 — DVC Pipeline Runner Image
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# System deps (Tesseract for OCR, poppler for PDF)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    tesseract-ocr \
+    tesseract-ocr-eng \
+    poppler-utils \
+    libglib2.0-0 \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Python deps
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt \
+    && pip install --no-cache-dir \
+        dvc[s3] \
+        mlflow>=2.13.0 \
+        joblib \
+        scikit-learn \
+        pandas \
+        easyocr
+
+# Copy project
+COPY . .
+
+# DVC init (idempotent)
+RUN dvc init --no-scm || true
+
+ENV PYTHONPATH=/app
+ENV PYTHONUNBUFFERED=1
+
+CMD ["bash", "scripts/run_dvc_pipeline.sh"]

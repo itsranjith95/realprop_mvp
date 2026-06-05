@@ -1,4 +1,7 @@
+from datetime import datetime
+
 from sqlalchemy import Column, DateTime, ForeignKey, Integer, String, Text
+
 from src.core.database import Base
 
 
@@ -43,28 +46,31 @@ class AuditEventORM(Base):
     object_id = Column(String(100), nullable=False, index=True)
     metadata_json = Column(Text, nullable=False)
     created_at = Column(DateTime(timezone=True), nullable=False)
-    
+
+
 # ─── Phase 4 addition ─────────────────────────────────────────────────────────
+
 
 class ExtractedEntityORM(Base):
     __tablename__ = "extracted_entities"
 
-    id               = Column(String(64),  primary_key=True)
-    case_id          = Column(String(64),  ForeignKey("cases.id"), nullable=False, index=True)
-    document_id      = Column(String(64),  ForeignKey("documents.id"), nullable=False, index=True)
-    doc_type         = Column(String(50),  nullable=False)
-    field_name       = Column(String(100), nullable=False)
-    value            = Column(Text,        nullable=False)
-    normalized_value = Column(Text,        nullable=False)
-    confidence       = Column(String(10),  nullable=False)   # stored as str, cast to float in service
-    page             = Column(Integer,     nullable=False, default=0)
-    bbox             = Column(Text,        nullable=True)     # JSON list
-    source_doc       = Column(String(255), nullable=True)
-    extraction_method= Column(String(50),  nullable=False, default="regex")
-    created_at       = Column(DateTime(timezone=True), nullable=False)
-    
-    
+    id = Column(String(64), primary_key=True)
+    case_id = Column(String(64), ForeignKey("cases.id"), nullable=False, index=True)
+    document_id = Column(String(64), ForeignKey("documents.id"), nullable=False, index=True)
+    doc_type = Column(String(50), nullable=False)
+    field_name = Column(String(100), nullable=False)
+    value = Column(Text, nullable=False)
+    normalized_value = Column(Text, nullable=False)
+    confidence = Column(String(10), nullable=False)  # stored as str, cast to float in service
+    page = Column(Integer, nullable=False, default=0)
+    bbox = Column(Text, nullable=True)  # JSON list
+    source_doc = Column(String(255), nullable=True)
+    extraction_method = Column(String(50), nullable=False, default="regex")
+    created_at = Column(DateTime(timezone=True), nullable=False)
+
+
 # ── Phase 7 addition ──────────────────────────────────────────────────────────
+
 
 class LawyerReview(Base):
     """
@@ -74,21 +80,21 @@ class LawyerReview(Base):
     """
     __tablename__ = "lawyer_reviews"
 
-    id           = Column(Integer, primary_key=True, autoincrement=True)
-    case_id      = Column(String, ForeignKey("cases.id"), nullable=False, index=True)
-    action       = Column(String, nullable=False)          # approve | request_clarification | mark_high_risk
-    notes        = Column(Text,   default="")
-    lawyer_name  = Column(String, default="Lawyer")
-    final_label  = Column(String, default="")
-    reviewed_at  = Column(DateTime, default=datetime.utcnow)
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    case_id = Column(String, ForeignKey("cases.id"), nullable=False, index=True)
+    action = Column(String, nullable=False)  # approve | request_clarification | mark_high_risk
+    notes = Column(Text, default="")
+    lawyer_name = Column(String, default="Lawyer")
+    final_label = Column(String, default="")
+    reviewed_at = Column(DateTime, default=datetime.utcnow)
 
     def to_dict(self) -> dict:
         return {
-            "id":           self.id,
-            "case_id":      self.case_id,
-            "action":       self.action,
-            "notes":        self.notes,
-            "lawyer_name":  self.lawyer_name,
-            "final_label":  self.final_label,
-            "reviewed_at":  self.reviewed_at.isoformat() if self.reviewed_at else "",
+            "id": self.id,
+            "case_id": self.case_id,
+            "action": self.action,
+            "notes": self.notes,
+            "lawyer_name": self.lawyer_name,
+            "final_label": self.final_label,
+            "reviewed_at": self.reviewed_at.isoformat() if self.reviewed_at else "",
         }

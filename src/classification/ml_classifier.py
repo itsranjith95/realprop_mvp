@@ -1,25 +1,22 @@
 from pathlib import Path
-from typing import Optional
-
 import joblib
 
-MODEL_DIR = Path("models/classification")
-MODEL_PATH = MODEL_DIR / "tfidf_logreg.joblib"
+MODEL_PATH = Path("data/models/classification/tfidf_logreg.joblib")
 
 
 class MLDocumentClassifier:
     def __init__(self, model_path: Path | str = MODEL_PATH):
         self.model_path = Path(model_path)
-        self.bundle = None
+        self.model = None
 
         if self.model_path.exists():
-            self.bundle = joblib.load(self.model_path)
+            self.model = joblib.load(self.model_path)
 
     def is_available(self) -> bool:
-        return self.bundle is not None
+        return self.model is not None
 
     def predict(self, text: str) -> dict:
-        if not self.bundle:
+        if self.model is None:
             return {
                 "doc_type": "other",
                 "confidence": 0.0,
@@ -37,25 +34,34 @@ class MLDocumentClassifier:
                 "all_scores": {},
             }
 
-        vectorizer = self.bundle["vectorizer"]
-        model = self.bundle["model"]
-        labels = self.bundle["labels"]
+        try:
+            predicted_label = self.model.predict([text])[0]
 
-        X = vectorizer.transform([text])
-        probs = model.predict_proba(X)[0]
-        pred_idx = probs.argmax()
-        pred_label = labels[pred_idx]
-        pred_conf = float(probs[pred_idx])
+            all_scores = {}
+            confidence = 0.0
 
-        all_scores = {
-            label: round(float(prob), 4)
-            for label, prob in zip(labels, probs)
-        }
+            if hasattr(self.model, "predict_proba"):
+                probs = self.model.predict_proba([text])[0]
+                labels = list(self.model.classes_)
+                all_scores = {
+                    label: round(float(prob), 4)
+                    for label, prob in zip(labels, probs)
+                }
+                confidence = round(float(max(probs)), 4)
 
-        return {
-            "doc_type": pred_label,
-            "confidence": round(pred_conf, 4),
-            "method": "ml_classifier",
-            "error": None,
-            "all_scores": all_scores,
-        }
+            return {
+                "doc_type": str(predicted_label),
+                "confidence": confidence,
+                "method": "ml_classifier",
+                "error": None,
+                "all_scores": all_scores,
+            }
+
+        except Exception as e:
+            return {
+                "doc_type": "other",
+                "confidence": 0.0,
+                "method": "ml_classifier",
+                "error": str(e),
+                "all_scores": {},
+            }
