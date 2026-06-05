@@ -30,7 +30,7 @@ stages:
     outs:
     - path: data/models/classification/tfidf_logreg.joblib
       hash: md5
-      md5: 9bf8004e3d11cfaab33fe52d4d7e8893
+      md5: 908863c83e17a400c2401d56bea17220
       size: 11732
   classification_evaluate:
     cmd: python -m src.classification.evaluate_classifier
@@ -41,7 +41,7 @@ stages:
       size: 244
     - path: data/models/classification/tfidf_logreg.joblib
       hash: md5
-      md5: c58dfbd075b59b0ed2c4f35fe0e977ff
+      md5: 908863c83e17a400c2401d56bea17220
       size: 11732
     - path: src/classification/evaluate_classifier.py
       hash: md5
@@ -49,8 +49,12 @@ stages:
       size: 3092
     - path: src/classification/ml_classifier.py
       hash: md5
-      md5: 3a0d6200deeae7eb8582ac3c976e8d45
-      size: 1775
+      md5: c0168d37923272b41fb04db59f00cc13
+      size: 2071
+    - path: src/mlops/mlflow_utils.py
+      hash: md5
+      md5: df5c78bd03af06fd756a5bdaa6946238
+      size: 2486
     outs:
     - path: data/models/classification/eval_report.txt
       hash: md5
@@ -61,9 +65,9 @@ stages:
     deps:
     - path: data/raw/
       hash: md5
-      md5: 5fd09548fe0401b7275e26f83e0a9506.dir
-      size: 12389101
-      nfiles: 13
+      md5: 96555dad3927bc5ea7aad36211191935.dir
+      size: 17062895
+      nfiles: 15
     - path: src/pipelines/data_ingest_pipeline.py
       hash: md5
       md5: cc18ba58468928cab78396e8b3e00fc0
@@ -71,17 +75,17 @@ stages:
     outs:
     - path: data/ocr_input/
       hash: md5
-      md5: 9278cfc73858448e14f4016403ee90ea.dir
-      size: 12393584
-      nfiles: 11
+      md5: 36e6230fe7a265ff4e62907bc3b548bd.dir
+      size: 17068325
+      nfiles: 13
   ocr:
     cmd: python -m src.pipelines.ocr_pipeline
     deps:
     - path: data/ocr_input/
       hash: md5
-      md5: 9278cfc73858448e14f4016403ee90ea.dir
-      size: 12393584
-      nfiles: 11
+      md5: 36e6230fe7a265ff4e62907bc3b548bd.dir
+      size: 17068325
+      nfiles: 13
     - path: src/pipelines/ocr_pipeline.py
       hash: md5
       md5: 7af71f85b708bfc84429ae99187abde3
@@ -105,9 +109,9 @@ stages:
     outs:
     - path: data/ocr/
       hash: md5
-      md5: ec8f0a967026033e479bcdc33bd1b4c2.dir
-      size: 110129
-      nfiles: 34
+      md5: 20e637420efbc1a4c9d52295d99f2940.dir
+      size: 121180
+      nfiles: 38
   register_models:
     cmd: python -m src.mlops.register_models
     deps:
@@ -133,13 +137,13 @@ stages:
     deps:
     - path: data/models/classification/tfidf_logreg.joblib
       hash: md5
-      md5: 9bf8004e3d11cfaab33fe52d4d7e8893
+      md5: 908863c83e17a400c2401d56bea17220
       size: 11732
     - path: data/ocr/
       hash: md5
-      md5: ec8f0a967026033e479bcdc33bd1b4c2.dir
-      size: 110129
-      nfiles: 34
+      md5: 20e637420efbc1a4c9d52295d99f2940.dir
+      size: 121180
+      nfiles: 38
     - path: src/classification/ml_classifier.py
       hash: md5
       md5: c0168d37923272b41fb04db59f00cc13
@@ -151,6 +155,66 @@ stages:
     outs:
     - path: data/classification/
       hash: md5
-      md5: 718a8a1b9211a0b17f9e32a102d2a09e.dir
-      size: 4911
-      nfiles: 10
+      md5: e8f4a9d1bff204a79cc0905748cd9285.dir
+      size: 5927
+      nfiles: 12
+  extraction:
+    cmd: python -m src.pipelines.extraction_pipeline
+    deps:
+    - path: config/extraction_config.yaml
+      hash: md5
+      md5: 21376c6c6d7c0fbfbadab382c4d7b471
+      size: 1824
+    - path: data/classification/
+      hash: md5
+      md5: e8f4a9d1bff204a79cc0905748cd9285.dir
+      size: 5927
+      nfiles: 12
+    - path: data/ocr/
+      hash: md5
+      md5: 20e637420efbc1a4c9d52295d99f2940.dir
+      size: 121180
+      nfiles: 38
+    - path: src/pipelines/extraction_pipeline.py
+      hash: md5
+      md5: da5459bcc1c64105276765031ed06c03
+      size: 8024
+    - path: src/services/extractionservice.py
+      hash: md5
+      md5: 28873162dd05fce50b08f0ec290c6b71
+      size: 12824
+    params:
+      config/extraction_config.yaml:
+        confidence_thresholds:
+          high: 0.85
+          medium: 0.65
+          low: 0.4
+        spacy_model: en_core_web_sm
+    outs:
+    - path: data/extracted/
+      hash: md5
+      md5: 793c85251aee0ef3899ecb4b6c17e45f.dir
+      size: 67139
+      nfiles: 12
+  validate:
+    cmd: python -m src.pipelines.validation_pipeline
+    deps:
+    - path: data/extracted/
+      hash: md5
+      md5: 793c85251aee0ef3899ecb4b6c17e45f.dir
+      size: 67139
+      nfiles: 12
+    - path: src/core/validation_models.py
+      hash: md5
+      md5: a1fec3fb579da932904026bea5b71007
+      size: 2825
+    - path: src/pipelines/validation_pipeline.py
+      hash: md5
+      md5: e447d2d5052b77881df7b5eb32401f43
+      size: 17321
+    outs:
+    - path: data/results/validations/
+      hash: md5
+      md5: 5b64abdebfa6763b5ef21bc7b36e4453.dir
+      size: 7346
+      nfiles: 4
