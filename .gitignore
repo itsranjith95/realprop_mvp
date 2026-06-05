@@ -53,4 +53,7 @@ build/
 dist/
 *.egg-info/
 
-.env 
+.env
+mlflow.db
+mlflow.db-journal
+mlruns/

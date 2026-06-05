@@ -1,31 +1,99 @@
+# dvc.yaml — Full Pipeline Definition (Phase 8.1 MLOps)
 stages:
+
+  # ─────────────────────────────────────────
+  # STAGE 1: Data Ingest (raw → OCR input)
+  # ─────────────────────────────────────────
+  data_ingest:
+    cmd: python -m src.pipelines.data_ingest_pipeline
+    deps:
+      - src/pipelines/data_ingest_pipeline.py
+      - data/raw/
+    outs:
+      - data/ocr_input/
+    desc: "Phase 8.1 – Ingest raw documents, validate formats, and stage them for OCR"
+    meta:
+      phase: "8.1"
+      stage_type: "ingest"
+
+  # ─────────────────────────────────────────
+  # STAGE 2: OCR (OCR input → OCR JSON)
+  # ─────────────────────────────────────────
+  ocr:
+    cmd: python -m src.pipelines.ocr_pipeline
+    deps:
+      - src/pipelines/ocr_pipeline.py
+      - src/services/ocr_pipeline.py
+      - src/services/ocr_service.py
+      - src/services/pdf_service.py
+      - src/services/file_service.py
+      - data/ocr_input/
+    outs:
+      - data/ocr/
+    desc: "Phase 8.1 – Run OCR and generate OCR JSON outputs"
+    meta:
+      phase: "8.1"
+      stage_type: "ocr"
+
+  # ─────────────────────────────────────────
+  # STAGE 3: Classification Train
+  # ─────────────────────────────────────────
   classification_train:
     cmd: python -m src.classification.train_classifier
     deps:
       - src/classification/train_classifier.py
       - src/classification/ml_classifier.py
       - src/classification/label_space.py
+      - src/mlops/mlflow_utils.py
       - data/labeled/classification/train.csv
       - data/labeled/classification/val.csv
     outs:
-      - models/classification/tfidf_logreg.joblib
+      - data/models/classification/tfidf_logreg.joblib
+    desc: "Phase 8.1 – Train TF-IDF + LogisticRegression classifier"
+    meta:
+      phase: "8.1"
+      stage_type: "train"
 
+  # ─────────────────────────────────────────
+  # STAGE 4: Classification Evaluate
+  # ─────────────────────────────────────────
   classification_evaluate:
     cmd: python -m src.classification.evaluate_classifier
     deps:
       - src/classification/evaluate_classifier.py
       - src/classification/ml_classifier.py
+      - src/mlops/mlflow_utils.py
       - data/labeled/classification/test.csv
-      - models/classification/tfidf_logreg.joblib
+      - data/models/classification/tfidf_logreg.joblib
     outs:
-      - models/classification/eval_report.txt
+      - data/models/classification/eval_report.txt
+    desc: "Phase 8.1 – Evaluate classifier and log test metrics"
+    meta:
+      phase: "8.1"
+      stage_type: "evaluate"
 
+  # ─────────────────────────────────────────
+  # STAGE 5: Classification Inference (OCR JSON → doc_type labels)
+  # ─────────────────────────────────────────
+  classification:
+    cmd: python -m src.pipelines.classification_pipeline
+    deps:
+      - src/pipelines/classification_pipeline.py
+      - src/classification/ml_classifier.py
+      - data/ocr/
+      - data/models/classification/tfidf_logreg.joblib
+    outs:
+      - data/classification/
+    desc: "Phase 8.1 – Predict document types from OCR JSON"
+    meta:
+      phase: "8.1"
+      stage_type: "classification_inference"
+
+  # ─────────────────────────────────────────
+  # STAGE 6: Extraction (OCR JSON + predicted label → entities)
+  # ─────────────────────────────────────────
   extraction:
-    cmd: >
-      python -m src.pipelines.extraction_pipeline
-      --case_id ${case_id}
-      --doc_id  ${doc_id}
-      --doc_type ${doc_type}
+    cmd: python -m src.pipelines.extraction_pipeline
     params:
       - config/extraction_config.yaml:
           - spacy_model
@@ -34,23 +102,34 @@ stages:
       - src/pipelines/extraction_pipeline.py
       - src/services/extractionservice.py
       - config/extraction_config.yaml
-      - data/ocr/${case_id}/${doc_id}
+      - data/ocr/
+      - data/classification/
     outs:
-      - data/extracted/${case_id}/${doc_id}/entities.json
+      - data/extracted/
+    desc: "Phase 8.1 – Extract entities using OCR output and classified doc types"
+    meta:
+      phase: "8.1"
+      stage_type: "extraction"
 
-      
-# Add these two stages under the existing `stages:` block in dvc.yaml
-
+  # ─────────────────────────────────────────
+  # STAGE 7: Validation (entities → validation results)
+  # ─────────────────────────────────────────
   validate:
     cmd: python -m src.pipelines.validation_pipeline
     deps:
       - src/pipelines/validation_pipeline.py
       - src/core/validation_models.py
-      - data/results/extracted/
+      - data/extracted/
     outs:
       - data/results/validations/
-    desc: "Phase 5 – Cross-document validation (Mother Deed ↔ Khata)"
+    desc: "Phase 8.1 – Cross-document validation"
+    meta:
+      phase: "8.1"
+      stage_type: "validate"
 
+  # ─────────────────────────────────────────
+  # STAGE 8: Rules / Risk Scoring
+  # ─────────────────────────────────────────
   rules:
     cmd: python -m src.pipelines.rules_pipeline
     deps:
@@ -60,4 +139,24 @@ stages:
       - data/results/validations/
     outs:
       - data/results/risk_scores/
-    desc: "Phase 5 – Rules evaluation & risk scoring"
+    desc: "Phase 8.1 – Rules evaluation and risk scoring"
+    meta:
+      phase: "8.1"
+      stage_type: "rules"
+
+  # ─────────────────────────────────────────
+  # STAGE 9: MLflow Model Registration
+  # ─────────────────────────────────────────
+  register_models:
+    cmd: python -m src.mlops.register_models
+    deps:
+      - src/mlops/register_models.py
+      - src/mlops/mlflow_utils.py
+      - data/models/classification/tfidf_logreg.joblib
+      - data/models/classification/eval_report.txt
+    outs:
+      - data/models/registry_manifest.json
+    desc: "Phase 8.1 – Register trained classifier in MLflow Model Registry"
+    meta:
+      phase: "8.1"
+      stage_type: "registry"

@@ -5,8 +5,8 @@ stages:
     deps:
     - path: data/labeled/classification/train.csv
       hash: md5
-      md5: 6c607d5754e8ec46891edb5ad4b24325
-      size: 989
+      md5: 3e79ed6708be4de1f7e99c045e153865
+      size: 997
     - path: data/labeled/classification/val.csv
       hash: md5
       md5: f517702b3305f8461e906b561bdefda6
@@ -17,17 +17,21 @@ stages:
       size: 167
     - path: src/classification/ml_classifier.py
       hash: md5
-      md5: 3a0d6200deeae7eb8582ac3c976e8d45
-      size: 1775
+      md5: c0168d37923272b41fb04db59f00cc13
+      size: 2071
     - path: src/classification/train_classifier.py
       hash: md5
-      md5: b3f9cebf1a757a8cb4f8412269e0269d
-      size: 2495
-    outs:
-    - path: models/classification/tfidf_logreg.joblib
+      md5: c8749a2f6088152ee4d3615d9e500f68
+      size: 4498
+    - path: src/mlops/mlflow_utils.py
       hash: md5
-      md5: 1c4c5d92ce7bfe7f111b2caca7f2c558
-      size: 11921
+      md5: df5c78bd03af06fd756a5bdaa6946238
+      size: 2486
+    outs:
+    - path: data/models/classification/tfidf_logreg.joblib
+      hash: md5
+      md5: 9bf8004e3d11cfaab33fe52d4d7e8893
+      size: 11732
   classification_evaluate:
     cmd: python -m src.classification.evaluate_classifier
     deps:
@@ -35,23 +39,23 @@ stages:
       hash: md5
       md5: 8956d333e5f871aefca1bbeff22149e2
       size: 244
-    - path: models/classification/tfidf_logreg.joblib
+    - path: data/models/classification/tfidf_logreg.joblib
       hash: md5
-      md5: 1c4c5d92ce7bfe7f111b2caca7f2c558
-      size: 11921
+      md5: c58dfbd075b59b0ed2c4f35fe0e977ff
+      size: 11732
     - path: src/classification/evaluate_classifier.py
       hash: md5
-      md5: d66b5a1a4bf5155bbb602c1ea0235fae
-      size: 1166
+      md5: 1546f6a032f426f6829436a430e42275
+      size: 3092
     - path: src/classification/ml_classifier.py
       hash: md5
       md5: 3a0d6200deeae7eb8582ac3c976e8d45
       size: 1775
     outs:
-    - path: models/classification/eval_report.txt
+    - path: data/models/classification/eval_report.txt
       hash: md5
-      md5: 05c74a2d89c7a8b0c5ca6cd46e4a2fce
-      size: 522
+      md5: edba2f9365f671c07fae02e3a9418703
+      size: 503
   data_ingest:
     cmd: python -m src.pipelines.data_ingest_pipeline
     deps:
@@ -67,6 +71,86 @@ stages:
     outs:
     - path: data/ocr_input/
       hash: md5
-      md5: 0cb467c1aefd53685cae095eb38dd87d.dir
+      md5: 9278cfc73858448e14f4016403ee90ea.dir
       size: 12393584
       nfiles: 11
+  ocr:
+    cmd: python -m src.pipelines.ocr_pipeline
+    deps:
+    - path: data/ocr_input/
+      hash: md5
+      md5: 9278cfc73858448e14f4016403ee90ea.dir
+      size: 12393584
+      nfiles: 11
+    - path: src/pipelines/ocr_pipeline.py
+      hash: md5
+      md5: 7af71f85b708bfc84429ae99187abde3
+      size: 2523
+    - path: src/services/file_service.py
+      hash: md5
+      md5: a1949eaaa1d4a0622fb47147c6e6d0ab
+      size: 658
+    - path: src/services/ocr_pipeline.py
+      hash: md5
+      md5: 9e03e0d3814d750c2e2ab814b5209146
+      size: 2441
+    - path: src/services/ocr_service.py
+      hash: md5
+      md5: a0bb236324b4fad4e3e9934067913c74
+      size: 9641
+    - path: src/services/pdf_service.py
+      hash: md5
+      md5: 43e04bc84ac3c9f4f29790849e2def7e
+      size: 471
+    outs:
+    - path: data/ocr/
+      hash: md5
+      md5: ec8f0a967026033e479bcdc33bd1b4c2.dir
+      size: 110129
+      nfiles: 34
+  register_models:
+    cmd: python -m src.mlops.register_models
+    deps:
+    - path: data/models/classification/eval_report.txt
+      hash: md5
+      md5: edba2f9365f671c07fae02e3a9418703
+      size: 503
+    - path: data/models/classification/tfidf_logreg.joblib
+      hash: md5
+      md5: c58dfbd075b59b0ed2c4f35fe0e977ff
+      size: 11732
+    - path: src/mlops/register_models.py
+      hash: md5
+      md5: 4284abc277f129da5238220d7c1c43bf
+      size: 5279
+    outs:
+    - path: data/models/registry_manifest.json
+      hash: md5
+      md5: 65cb809dbe08f978cd4ebcaaf87322d9
+      size: 557
+  classification:
+    cmd: python -m src.pipelines.classification_pipeline
+    deps:
+    - path: data/models/classification/tfidf_logreg.joblib
+      hash: md5
+      md5: 9bf8004e3d11cfaab33fe52d4d7e8893
+      size: 11732
+    - path: data/ocr/
+      hash: md5
+      md5: ec8f0a967026033e479bcdc33bd1b4c2.dir
+      size: 110129
+      nfiles: 34
+    - path: src/classification/ml_classifier.py
+      hash: md5
+      md5: c0168d37923272b41fb04db59f00cc13
+      size: 2071
+    - path: src/pipelines/classification_pipeline.py
+      hash: md5
+      md5: 724a48876934440b867720193957f549
+      size: 2845
+    outs:
+    - path: data/classification/
+      hash: md5
+      md5: 718a8a1b9211a0b17f9e32a102d2a09e.dir
+      size: 4911
+      nfiles: 10
