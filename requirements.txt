@@ -58,3 +58,5 @@ pytesseract
 pdf2image
 
 skops>=0.10.0
+
+faiss-cpu

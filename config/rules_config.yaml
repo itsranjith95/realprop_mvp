@@ -1,154 +1,179 @@
-# config/rules_config.yaml
-# Phase 5 – Rules & Risk Scoring Configuration
-# Mother Deed ↔ Khata cross-document governance rules
+# ============================================================
+# RealProp MVP — Rules Configuration
+# Version this file: bump rule_set_version on any rule change
+# ============================================================
 
-version: "1.0.0"
-description: "Deterministic rules for MVP governance (Mother Deed + Khata)"
+meta:
+  rule_set_version: "1.2.0"
+  effective_date: "2026-06-05"
+  author: "realprop-team"
+  description: "Bengaluru/Karnataka Mother Deed & Khata validation rules"
 
-# ---------------------------------------------------------------------------
-# Risk Score Thresholds → Label Mapping
-# ---------------------------------------------------------------------------
-risk_thresholds:
-  green:
-    min: 0
-    max: 30
-    label: "Green"
-    description: "Low risk – document chain appears consistent."
-  yellow:
-    min: 31
-    max: 65
-    label: "Yellow"
-    description: "Medium risk – review flagged issues before proceeding."
-  red:
-    min: 66
-    max: 100
-    label: "Red"
-    description: "High risk – mandatory legal review required."
-
-# ---------------------------------------------------------------------------
-# Rules
-# Each rule:
-#   id          : unique snake_case identifier
-#   name        : human-readable label
-#   severity    : critical | high | medium | low
-#   points      : risk points added when this rule fires (0–100 scale)
-#   mandatory_review : if true, always escalate regardless of total score
-#   description : what this rule checks
-#   evidence_hint: field names to surface as evidence
-# ---------------------------------------------------------------------------
+# ----------------------------------------------------------------
+# SEVERITY LEVELS:  high | medium | low
+# CATEGORY:         mandatory | name_match | id_match | date | area | confidence
+# ----------------------------------------------------------------
 rules:
 
-  - id: MISSING_OWNER_NAME
-    name: "Missing Owner Name"
-    severity: critical
-    points: 40
-    mandatory_review: true
-    description: >
-      Owner name is absent in either the Khata certificate or the
-      Mother Deed. Cannot perform any ownership validation.
-    evidence_hint:
-      - khata.owner_name
-      - mother_deed.buyer_name
-
-  - id: MISSING_BUYER_SELLER_NAMES
-    name: "Missing Buyer/Seller Names in Mother Deed"
-    severity: high
+  # ── Mandatory field presence ──────────────────────────────────────
+  - rule_id: "R001"
+    rule_version: "1.0.0"
+    name: "MISSING_OWNER_NAME"
+    category: "mandatory"
+    severity: "high"
+    description: "Khata document must have owner name"
+    applies_to: ["KHATA"]
+    field: "owner_name"
+    condition: "missing_or_empty"
     points: 30
-    mandatory_review: true
-    description: >
-      One or both party names (buyer / seller) are missing in the
-      Mother Deed, making chain-of-title verification impossible.
-    evidence_hint:
-      - mother_deed.buyer_name
-      - mother_deed.seller_name
+    requires_review: true
 
-  - id: OWNER_NAME_MISMATCH
-    name: "Owner Name Mismatch"
-    severity: high
-    points: 35
-    mandatory_review: false
-    description: >
-      The buyer name in the Mother Deed does not fuzzy-match the
-      owner name in the Khata certificate (threshold < 85).
-    evidence_hint:
-      - mother_deed.buyer_name
-      - khata.owner_name
+  - rule_id: "R002"
+    rule_version: "1.0.0"
+    name: "MISSING_BUYER_NAME"
+    category: "mandatory"
+    severity: "high"
+    description: "Mother Deed must have buyer name"
+    applies_to: ["MOTHER_DEED"]
+    field: "buyer_name"
+    condition: "missing_or_empty"
+    points: 30
+    requires_review: true
 
-  - id: PROPERTY_ID_MISMATCH
-    name: "Property ID Mismatch"
-    severity: high
-    points: 35
-    mandatory_review: false
-    description: >
-      The survey/site/flat number in the Mother Deed does not match
-      the property ID recorded in the Khata certificate.
-    evidence_hint:
-      - mother_deed.property_id
-      - khata.property_id
-
-  - id: AREA_MISMATCH
-    name: "Area Mismatch"
-    severity: medium
+  - rule_id: "R003"
+    rule_version: "1.0.0"
+    name: "MISSING_SELLER_NAME"
+    category: "mandatory"
+    severity: "high"
+    description: "Mother Deed must have seller name"
+    applies_to: ["MOTHER_DEED"]
+    field: "seller_name"
+    condition: "missing_or_empty"
     points: 20
-    mandatory_review: false
-    description: >
-      The plot/flat area recorded in the Mother Deed differs from
-      the area in the Khata certificate by more than 5%.
-    evidence_hint:
-      - mother_deed.area
-      - khata.area
+    requires_review: true
 
-  - id: MISSING_PROPERTY_ID
-    name: "Missing Property ID"
-    severity: high
+  - rule_id: "R004"
+    rule_version: "1.0.0"
+    name: "MISSING_PROPERTY_ID"
+    category: "mandatory"
+    severity: "high"
+    description: "Property ID / survey number must be present"
+    applies_to: ["MOTHER_DEED", "KHATA"]
+    field: "property_id"
+    condition: "missing_or_empty"
     points: 25
-    mandatory_review: false
-    description: >
-      Property identifier (survey number / site number / flat number)
-      is absent in one or both documents.
-    evidence_hint:
-      - mother_deed.property_id
-      - khata.property_id
+    requires_review: true
 
-  - id: LOW_CONFIDENCE_CRITICAL_FIELD
-    name: "Low Confidence on Critical Field"
-    severity: medium
+  - rule_id: "R005"
+    rule_version: "1.0.0"
+    name: "MISSING_KHATA_NUMBER"
+    category: "mandatory"
+    severity: "medium"
+    description: "Khata document must have Khata number"
+    applies_to: ["KHATA"]
+    field: "khata_number"
+    condition: "missing_or_empty"
     points: 15
-    mandatory_review: false
-    description: >
-      One or more critical fields (owner_name, property_id, area)
-      were extracted with confidence below the threshold (0.70).
-      Manual verification is recommended.
-    evidence_hint:
-      - extraction_confidence
+    requires_review: false
 
-  - id: MISSING_AREA
-    name: "Missing Area in Both Documents"
-    severity: low
+  - rule_id: "R006"
+    rule_version: "1.0.0"
+    name: "MISSING_REGISTRATION_DATE"
+    category: "date"
+    severity: "medium"
+    description: "Mother Deed must have a registration/execution date"
+    applies_to: ["MOTHER_DEED"]
+    field: "registration_date"
+    condition: "missing_or_empty"
+    points: 10
+    requires_review: false
+
+  # ── Cross-document matching ───────────────────────────────────────
+  - rule_id: "R010"
+    rule_version: "1.1.0"
+    name: "OWNER_NAME_MISMATCH"
+    category: "name_match"
+    severity: "high"
+    description: "Buyer name in Mother Deed does not match owner name in Khata"
+    applies_to: ["CROSS"]
+    fields: ["buyer_name", "owner_name"]
+    condition: "fuzzy_mismatch"
+    fuzzy_threshold: 85
+    points: 35
+    requires_review: true
+
+  - rule_id: "R011"
+    rule_version: "1.1.0"
+    name: "PROPERTY_ID_MISMATCH"
+    category: "id_match"
+    severity: "high"
+    description: "Property ID in Mother Deed does not match Khata property ID"
+    applies_to: ["CROSS"]
+    fields: ["property_id", "khata_property_id"]
+    condition: "exact_mismatch"
+    points: 40
+    requires_review: true
+
+  - rule_id: "R012"
+    rule_version: "1.0.0"
+    name: "AREA_MISMATCH"
+    category: "area"
+    severity: "medium"
+    description: "Property area in Mother Deed does not match Khata area (>5% tolerance)"
+    applies_to: ["CROSS"]
+    fields: ["property_area", "khata_area"]
+    condition: "numeric_mismatch"
+    tolerance_percent: 5
+    points: 20
+    requires_review: false
+
+  - rule_id: "R013"
+    rule_version: "1.0.0"
+    name: "ADDRESS_MISMATCH"
+    category: "name_match"
+    severity: "medium"
+    description: "Address in Mother Deed does not match Khata address"
+    applies_to: ["CROSS"]
+    fields: ["property_address", "khata_address"]
+    condition: "fuzzy_mismatch"
+    fuzzy_threshold: 70
+    points: 15
+    requires_review: false
+
+  # ── Confidence-based rules ────────────────────────────────────────
+  - rule_id: "R020"
+    rule_version: "1.0.0"
+    name: "LOW_CONFIDENCE_CRITICAL_FIELD"
+    category: "confidence"
+    severity: "medium"
+    description: "A critical extracted field has low OCR/extraction confidence"
+    applies_to: ["MOTHER_DEED", "KHATA"]
+    critical_fields: ["owner_name", "buyer_name", "seller_name", "property_id", "khata_number"]
+    condition: "confidence_below_threshold"
+    confidence_threshold: 0.75
+    points: 10
+    requires_review: false
+
+  - rule_id: "R021"
+    rule_version: "1.0.0"
+    name: "LOW_OCR_PAGE_CONFIDENCE"
+    category: "confidence"
+    severity: "low"
+    description: "A page has very low OCR confidence — extraction may be unreliable"
+    applies_to: ["MOTHER_DEED", "KHATA"]
+    condition: "page_ocr_confidence_below_threshold"
+    confidence_threshold: 0.60
     points: 5
-    mandatory_review: false
-    description: >
-      Area field is absent in both documents; area cross-check
-      was skipped.
-    evidence_hint:
-      - mother_deed.area
-      - khata.area
+    requires_review: false
 
-# ---------------------------------------------------------------------------
-# Field confidence thresholds used by LOW_CONFIDENCE_CRITICAL_FIELD
-# ---------------------------------------------------------------------------
-confidence_thresholds:
-  critical_field_min: 0.70
-  critical_fields:
-    - owner_name
-    - buyer_name
-    - property_id
-    - area
-
-# ---------------------------------------------------------------------------
-# Fuzzy match thresholds
-# ---------------------------------------------------------------------------
-fuzzy_thresholds:
-  owner_name_match: 85       # rapidfuzz token_sort_ratio minimum
-  property_id_match: 90      # exact after normalisation preferred; fallback ratio
-  area_tolerance_pct: 5.0    # % tolerance before AREA_MISMATCH fires
+# ─────────────────────────────────────────────────────────────────────
+# Risk scoring thresholds  (sum of triggered rule points)
+# ─────────────────────────────────────────────────────────────────────
+risk_scoring:
+  green_max: 15
+  yellow_max: 40
+  red_above: 40
+  labels:
+    green: "Low Risk"
+    yellow: "Medium Risk — Review Recommended"
+    red: "High Risk — Mandatory Lawyer Review"

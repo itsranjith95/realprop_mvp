@@ -4,9 +4,7 @@ import json
 import logging
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
-
-import yaml
+from typing import Any, Dict, List, Optional
 
 from src.core.validation_models import (
     RiskLabel,
@@ -15,11 +13,13 @@ from src.core.validation_models import (
     Severity,
     ValidationResult,
 )
+from src.services.rules_service import evaluate_rules as evaluate_rules_service
+from src.services.evidence_service import store_evidence
+from src.services.prompt_service import generate_flag_explanation
 
 logger = logging.getLogger("realprop.rules_pipeline")
 
 _BASE_DIR = Path(__file__).resolve().parents[2]
-_CONFIG_PATH = _BASE_DIR / "config" / "rules_config.yaml"
 _VALIDATIONS_DIR = _BASE_DIR / "data" / "results" / "validations"
 _RISK_OUTPUT_DIR = _BASE_DIR / "data" / "results" / "risk_scores"
 
@@ -30,16 +30,6 @@ def _setup_logging() -> None:
             level=logging.INFO,
             format="%(asctime)s [%(name)s] %(message)s",
         )
-
-
-def _load_rules_config(config_path: Optional[Path] = None) -> Dict[str, Any]:
-    path = config_path or _CONFIG_PATH
-    if not path.exists():
-        raise FileNotFoundError(f"Rules config not found at {path}")
-    with open(path, "r", encoding="utf-8") as fh:
-        config = yaml.safe_load(fh) or {}
-    logger.debug("Loaded rules config from %s (version=%s)", path, config.get("version"))
-    return config
 
 
 def _load_validation_reports(validations_dir: Optional[Path] = None) -> List[Dict[str, Any]]:
@@ -79,113 +69,180 @@ def _parse_validation_results(report_payload: Dict[str, Any]) -> List[Validation
     return parsed
 
 
-def evaluate_rules(
-    case_id: str,
-    validations: List[ValidationResult],
-    entities: Dict[str, Any],
-    config_path: Optional[Path] = None,
-) -> Tuple[int, RiskLabel, List[RuleHit]]:
-    logger.info("=== Evaluating rules for case_id=%s ===", case_id)
+def _map_service_label_to_risk_label(label_text: str) -> RiskLabel:
+    normalized = (label_text or "").lower()
+    if "high" in normalized or "red" in normalized:
+        return RiskLabel.RED
+    if "medium" in normalized or "yellow" in normalized:
+        return RiskLabel.YELLOW
+    return RiskLabel.GREEN
 
-    config = _load_rules_config(config_path)
-    rules_index: Dict[str, Dict[str, Any]] = {r["id"]: r for r in config.get("rules", [])}
-    confidence_cfg = config.get("confidence_thresholds", {})
-    min_confidence: float = float(confidence_cfg.get("critical_field_min", 0.70))
-    critical_fields: List[str] = confidence_cfg.get("critical_fields", [])
-    thresholds = config.get("risk_thresholds", {})
 
-    failed_rules: Dict[str, ValidationResult] = {
-        v.rule_id: v for v in validations if not v.passed
-    }
-
-    total_points = 0
+def _convert_service_hits_to_rule_hits(service_result: Dict[str, Any]) -> List[RuleHit]:
     rule_hits: List[RuleHit] = []
-    triggered_ids = set()
 
-    for rule_id, validation in failed_rules.items():
-        if rule_id not in rules_index:
-            logger.warning(
-                "Validation rule_id '%s' not found in rules_config; skipping scoring.",
-                rule_id,
-            )
-            continue
-
-        rule_cfg = rules_index[rule_id]
-        points = int(rule_cfg.get("points", 0))
-        total_points += points
-        triggered_ids.add(rule_id)
+    for item in service_result.get("rule_hits", []):
+        severity_value = str(item.get("severity", "medium")).lower()
+        mandatory_review = bool(item.get("requires_review", False))
+        evidence = item.get("evidence", {}) or {}
 
         hit = RuleHit(
-            rule_id=rule_id,
-            name=rule_cfg.get("name", rule_id),
-            severity=Severity(rule_cfg.get("severity", "medium")),
-            points=points,
-            mandatory_review=bool(rule_cfg.get("mandatory_review", False)),
-            evidence=validation.evidence or {},
+            rule_id=item.get("rule_id", ""),
+            name=item.get("rule_name", item.get("rule_id", "")),
+            severity=Severity(severity_value),
+            points=int(item.get("points", 0)),
+            mandatory_review=mandatory_review,
+            evidence=evidence,
         )
         rule_hits.append(hit)
 
-        logger.info(
-            "Rule HIT: %s (%s) +%d points",
-            rule_id,
-            rule_cfg.get("severity"),
-            points,
+    return rule_hits
+
+
+def _store_rule_hit_evidence(
+    case_id: str,
+    case_entities: Dict[str, Any],
+    rule_hits: List[RuleHit],
+) -> None:
+    """
+    Store lightweight evidence records for each triggered rule hit.
+    Tries to extract document/page/bbox from rule evidence payload when present.
+    """
+    for hit in rule_hits:
+        evidence = hit.evidence or {}
+
+        source_document_id = (
+            evidence.get("source_document_id")
+            or evidence.get("document_id")
+            or evidence.get("doc_id")
+            or "unknown_document"
         )
+        page = evidence.get("page", 0)
+        bbox = evidence.get("bbox", "")
+        field_name = evidence.get("field") or evidence.get("field_name") or ""
+        extracted_value = (
+            evidence.get("value")
+            or evidence.get("left_value")
+            or evidence.get("right_value")
+            or ""
+        )
+        doc_type = evidence.get("doc_type", "")
+        rule_version = evidence.get("rule_version", "unknown")
 
-    if "LOW_CONFIDENCE_CRITICAL_FIELD" not in triggered_ids:
-        low_conf_evidence: Dict[str, Any] = {}
-
-        for doc_key in ("mother_deed", "khata"):
-            doc_conf = entities.get(doc_key, {}).get("extraction_confidence", {}) or {}
-            for field in critical_fields:
-                conf_val = doc_conf.get(field)
-                if conf_val is None:
-                    continue
-                try:
-                    conf_float = float(conf_val)
-                except (TypeError, ValueError):
-                    continue
-                if conf_float < min_confidence:
-                    low_conf_evidence[f"{doc_key}.{field}"] = conf_float
-
-        if low_conf_evidence:
-            rule_cfg = rules_index.get("LOW_CONFIDENCE_CRITICAL_FIELD", {})
-            points = int(rule_cfg.get("points", 15))
-            total_points += points
-
-            hit = RuleHit(
-                rule_id="LOW_CONFIDENCE_CRITICAL_FIELD",
-                name=rule_cfg.get("name", "Low Confidence on Critical Field"),
-                severity=Severity(rule_cfg.get("severity", "medium")),
-                points=points,
-                mandatory_review=bool(rule_cfg.get("mandatory_review", False)),
-                evidence=low_conf_evidence,
+        try:
+            store_evidence(
+                case_id=case_id,
+                source_document_id=source_document_id,
+                rule_id=hit.rule_id,
+                rule_version=rule_version,
+                page=page if isinstance(page, int) else 0,
+                bbox=bbox if isinstance(bbox, list) else None,
+                field_name=field_name,
+                extracted_value=str(extracted_value),
+                doc_type=doc_type,
+                rule_name=hit.name,
+                severity=hit.severity.value,
+                flag_description=f"{hit.name} triggered in rules pipeline",
             )
-            rule_hits.append(hit)
-
-            logger.info(
-                "Rule HIT: LOW_CONFIDENCE_CRITICAL_FIELD +%d points | fields=%s",
-                points,
-                list(low_conf_evidence.keys()),
+        except Exception:
+            logger.exception(
+                "Failed to store evidence for case_id=%s rule_id=%s",
+                case_id,
+                hit.rule_id,
             )
 
-    risk_score = min(total_points, 100)
 
-    risk_label = RiskLabel.GREEN
-    for label_key in ("red", "yellow", "green"):
-        band = thresholds.get(label_key, {})
-        if band.get("min", 0) <= risk_score <= band.get("max", 0):
-            risk_label = RiskLabel(band["label"])
-            break
+def _attach_llm_explanations(rule_hits: List[RuleHit], prefer_llm: str = "openrouter") -> List[RuleHit]:
+    """
+    Optionally add plain-English explanation to each rule hit evidence.
+    Safe fallback: if LLM fails, pipeline continues.
+    """
+    enriched_hits: List[RuleHit] = []
 
-    logger.info(
-        "Risk evaluation complete for case_id=%s: score=%d label=%s hits=%d",
-        case_id,
-        risk_score,
-        risk_label.value,
-        len(rule_hits),
+    for hit in rule_hits:
+        evidence = hit.evidence or {}
+        try:
+            explanation = generate_flag_explanation(
+                rule_id=hit.rule_id,
+                rule_name=hit.name,
+                rule_version=evidence.get("rule_version", "unknown"),
+                severity=hit.severity.value,
+                rule_description=f"{hit.name} detected during due-diligence review",
+                evidence_summary=json.dumps(evidence, default=str)[:1000],
+                source_document_id=evidence.get("source_document_id", "unknown_document"),
+                page=evidence.get("page", 0),
+                bbox=str(evidence.get("bbox", "")),
+                extracted_values=json.dumps(evidence, default=str)[:1000],
+                prefer_llm=prefer_llm,
+            )
+            updated_evidence = dict(evidence)
+            updated_evidence["llm_explanation"] = explanation
+            enriched_hits.append(
+                RuleHit(
+                    rule_id=hit.rule_id,
+                    name=hit.name,
+                    severity=hit.severity,
+                    points=hit.points,
+                    mandatory_review=hit.mandatory_review,
+                    evidence=updated_evidence,
+                )
+            )
+        except Exception:
+            logger.exception("Failed to generate explanation for rule_id=%s", hit.rule_id)
+            enriched_hits.append(hit)
+
+    return enriched_hits
+
+
+def run_rules_pipeline(
+    case_id: str,
+    case_entities: Dict[str, Any],
+    validations: List[ValidationResult],
+    persist: bool = True,
+    output_dir: Optional[Path] = None,
+    attach_explanations: bool = False,
+) -> RiskOutput:
+    """
+    Orchestrates rules evaluation using the service layer,
+    stores evidence, optionally generates explanations, and persists RiskOutput.
+    """
+    service_result = evaluate_rules_service(case_id=case_id, entities=case_entities)
+
+    score = int(service_result.get("risk_score", 0))
+    label = _map_service_label_to_risk_label(service_result.get("risk_label", "Low Risk"))
+    rule_hits = _convert_service_hits_to_rule_hits(service_result)
+
+    if attach_explanations:
+        rule_hits = _attach_llm_explanations(rule_hits)
+
+    _store_rule_hit_evidence(case_id, case_entities, rule_hits)
+
+    mandatory_review = any(h.mandatory_review for h in rule_hits)
+
+    failed = [v for v in validations if not v.passed]
+    summary_parts = [f"Score: {score} ({label.value})"]
+    if mandatory_review:
+        summary_parts.append("Mandatory review required")
+    if failed:
+        summary_parts.append(f"Issues: {', '.join(v.rule_id for v in failed)}")
+    else:
+        if rule_hits:
+            summary_parts.append(f"Issues: {', '.join(h.rule_id for h in rule_hits)}")
+
+    risk_output = RiskOutput(
+        case_id=case_id,
+        risk_score=score,
+        risk_label=label,
+        mandatory_review=mandatory_review,
+        rule_hits=rule_hits,
+        validation_results=validations,
+        summary=" | ".join(summary_parts),
     )
-    return risk_score, risk_label, rule_hits
+
+    if persist:
+        persist_risk_output(risk_output, output_dir=output_dir)
+
+    return risk_output
 
 
 def persist_risk_output(
@@ -237,46 +294,6 @@ def persist_risk_summary(
     return out_path
 
 
-def run_rules_pipeline(
-    case_id: str,
-    case_entities: Dict[str, Any],
-    validations: List[ValidationResult],
-    persist: bool = True,
-    output_dir: Optional[Path] = None,
-    config_path: Optional[Path] = None,
-) -> RiskOutput:
-    score, label, rule_hits = evaluate_rules(
-        case_id=case_id,
-        validations=validations,
-        entities=case_entities,
-        config_path=config_path,
-    )
-
-    mandatory_review = any(h.mandatory_review for h in rule_hits)
-
-    failed = [v for v in validations if not v.passed]
-    summary_parts = [f"Score: {score} ({label.value})"]
-    if mandatory_review:
-        summary_parts.append("Mandatory review required")
-    if failed:
-        summary_parts.append(f"Issues: {', '.join(v.rule_id for v in failed)}")
-
-    risk_output = RiskOutput(
-        case_id=case_id,
-        risk_score=score,
-        risk_label=label,
-        mandatory_review=mandatory_review,
-        rule_hits=rule_hits,
-        validation_results=validations,
-        summary=" | ".join(summary_parts),
-    )
-
-    if persist:
-        persist_risk_output(risk_output, output_dir=output_dir)
-
-    return risk_output
-
-
 def main() -> None:
     _setup_logging()
 
@@ -311,7 +328,7 @@ def main() -> None:
             validations=validations,
             persist=True,
             output_dir=_RISK_OUTPUT_DIR,
-            config_path=_CONFIG_PATH,
+            attach_explanations=False,
         )
         all_outputs.append(risk_output)
 
