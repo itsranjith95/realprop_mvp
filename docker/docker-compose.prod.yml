@@ -1,0 +1,119 @@
+# ============================================================
+# docker/docker-compose.prod.yml
+# Production docker-compose for local prod-simulation and
+# pre-ECS testing. Phase 8.3.
+# ============================================================
+# Usage:
+#   docker compose -f docker/docker-compose.prod.yml up --build
+# ============================================================
+
+version: "3.9"
+
+services:
+  # ── RealProp Streamlit App ──────────────────────────────────
+  realprop-app:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.prod
+    container_name: realprop-app-prod
+    restart: unless-stopped
+    ports:
+      - "8501:8501"
+    environment:
+      - ENV=production
+      - MLFLOW_TRACKING_URI=http://mlflow:5000
+      # TODO: Replace with Docker secrets or AWS Secrets Manager in real prod
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+    volumes:
+      - realprop-logs:/app/logs
+      - realprop-data:/app/data
+      - realprop-models:/app/models
+    depends_on:
+      mlflow:
+        condition: service_healthy
+    networks:
+      - realprop-net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8501/_stcore/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    # TODO: Add CloudWatch log driver when deploying to ECS:
+    # logging:
+    #   driver: awslogs
+    #   options:
+    #     awslogs-group: /ecs/realprop-app-prod
+    #     awslogs-region: ap-south-1
+
+  # ── RealProp FastAPI Backend ────────────────────────────────
+  realprop-api:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.prod
+    container_name: realprop-api-prod
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    command: >
+      uvicorn src.api.main:app
+      --host 0.0.0.0
+      --port 8000
+      --workers 2
+      --log-level info
+    environment:
+      - ENV=production
+      - MLFLOW_TRACKING_URI=http://mlflow:5000
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+    volumes:
+      - realprop-logs:/app/logs
+      - realprop-data:/app/data
+      - realprop-models:/app/models
+    depends_on:
+      mlflow:
+        condition: service_healthy
+    networks:
+      - realprop-net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 45s
+
+  # ── MLflow Tracking Server ──────────────────────────────────
+  mlflow:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.pipeline
+    container_name: realprop-mlflow-prod
+    restart: unless-stopped
+    ports:
+      - "5000:5000"
+    command: >
+      mlflow server
+      --backend-store-uri sqlite:///mlflow.db
+      --default-artifact-root /mlflow/artifacts
+      --host 0.0.0.0
+      --port 5000
+      --workers 2
+    volumes:
+      - mlflow-data:/mlflow
+    networks:
+      - realprop-net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+volumes:
+  realprop-logs:
+  realprop-data:
+  realprop-models:
+  mlflow-data:
+
+networks:
+  realprop-net:
+    driver: bridge

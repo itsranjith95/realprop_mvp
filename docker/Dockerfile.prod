@@ -1,0 +1,91 @@
+# ============================================================
+# docker/Dockerfile.prod
+# Production-hardened Dockerfile for RealProp MVP
+# Phase 8.3 — MLOps, Dockerization & Hardening
+# ============================================================
+
+# ── Stage 1: Builder ─────────────────────────────────────────
+FROM python:3.10-slim AS builder
+
+WORKDIR /build
+
+# Install system deps needed for OCR and PDF processing
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    gcc \
+    g++ \
+    libglib2.0-0 \
+    libsm6 \
+    libxext6 \
+    libxrender-dev \
+    libgomp1 \
+    poppler-utils \
+    tesseract-ocr \
+    tesseract-ocr-hin \
+    tesseract-ocr-kan \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY requirements.txt .
+RUN pip install --upgrade pip && \
+    pip install --prefix=/install --no-cache-dir -r requirements.txt
+
+# ── Stage 2: Runtime ─────────────────────────────────────────
+FROM python:3.10-slim AS runtime
+
+# Security: run as non-root user
+RUN groupadd --gid 1001 realprop && \
+    useradd --uid 1001 --gid realprop --shell /bin/bash --create-home realprop
+
+WORKDIR /app
+
+# Copy system libraries installed in builder
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libglib2.0-0 \
+    libsm6 \
+    libxext6 \
+    libxrender1 \
+    libgomp1 \
+    poppler-utils \
+    tesseract-ocr \
+    tesseract-ocr-hin \
+    tesseract-ocr-kan \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy Python packages from builder
+COPY --from=builder /install /usr/local
+
+# Copy application source
+COPY --chown=realprop:realprop src/ ./src/
+COPY --chown=realprop:realprop config/ ./config/
+COPY --chown=realprop:realprop templates/ ./templates/
+COPY --chown=realprop:realprop kb/ ./kb/
+
+# Create writable dirs for logs and temp uploads
+RUN mkdir -p /app/logs /app/data/uploads /app/models && \
+    chown -R realprop:realprop /app/logs /app/data /app/models
+
+USER realprop
+
+# Expose ports
+
+# Streamlit
+EXPOSE 8501   
+
+# FastAPI
+EXPOSE 8000   
+
+# Health check (FastAPI /health endpoint)
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+    CMD curl -f http://localhost:8000/health || exit 1
+
+# Default: run Streamlit app
+# Override CMD in docker-compose or ECS task definition to run FastAPI instead
+CMD ["streamlit", "run", "src/app/mainapp.py", \
+     "--server.port=8501", \
+     "--server.address=0.0.0.0", \
+     "--server.headless=true", \
+     "--browser.gatherUsageStats=false"]
+
+# TODO: Add OpenTelemetry auto-instrumentation:
+# COPY --from=builder /install/opentelemetry-instrument /usr/local/bin/
+# CMD ["opentelemetry-instrument", "streamlit", "run", ...]
